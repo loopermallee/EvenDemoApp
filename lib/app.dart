@@ -1,5 +1,3 @@
-
-
 import 'package:demo_ai_even/services/evenai.dart';
 
 class App {
@@ -8,10 +6,10 @@ class App {
 
   App._();
 
-  // exit features by receiving [oxf5 0]
+  // exit features by receiving [0xf5 0]
   void exitAll({bool isNeedBackHome = true}) async {
     if (EvenAI.isEvenAIOpen.value) {
-      await EvenAI.get.stopEvenAIByOS();
+      await EvenAI.stopEvenAIByOS();
     }
   }
 }
