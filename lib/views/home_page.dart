@@ -6,6 +6,7 @@ import 'package:demo_ai_even/ble_manager.dart';
 import 'package:demo_ai_even/services/evenai.dart';
 import 'package:demo_ai_even/views/even_list_page.dart';
 import 'package:demo_ai_even/views/features_page.dart';
+import 'package:demo_ai_even/views/api_settings_page.dart'; // <-- NEW
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
@@ -35,7 +36,6 @@ class _HomePageState extends State<HomePage> {
     await BleManager.get().startScan();
     scanTimer?.cancel();
     scanTimer = Timer(15.seconds, () {
-      // todo
       _stopScan();
     });
   }
@@ -75,7 +75,8 @@ class _HomePageState extends State<HomePage> {
                       children: [
                         Text('Pair: ${glasses['channelNumber']}'),
                         Text(
-                            'Left: ${glasses['leftDeviceName']} \nRight: ${glasses['rightDeviceName']}'),
+                          'Left: ${glasses['leftDeviceName']} \nRight: ${glasses['rightDeviceName']}',
+                        ),
                       ],
                     ),
                   ],
@@ -91,9 +92,19 @@ class _HomePageState extends State<HomePage> {
         appBar: AppBar(
           title: const Text('Even AI Demo'),
           actions: [
+            // NEW: Settings (gear) to open BYOK screen
+            IconButton(
+              icon: const Icon(Icons.settings),
+              tooltip: 'API Settings',
+              onPressed: () {
+                Navigator.of(context).push(
+                  MaterialPageRoute(builder: (_) => const ApiSettingsPage()),
+                );
+              },
+            ),
+            // Existing menu -> Features page
             InkWell(
               onTap: () {
-                print("To Features Page...");
                 Navigator.push(
                   context,
                   MaterialPageRoute(builder: (context) => const FeaturesPage()),
@@ -126,70 +137,4 @@ class _HomePageState extends State<HomePage> {
                   height: 100,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(BleManager.get().getConnectionStatus(),
-                      style: const TextStyle(fontSize: 16)),
-                ),
-              ),
-              const SizedBox(height: 16),
-              if (BleManager.get().getConnectionStatus() == 'Not connected')
-                blePairedList(),
-              if (BleManager.get().isConnected)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () async {
-                      // todo
-                      print("To AI History List...");
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const EvenAIListPage(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(16),
-                      alignment: Alignment.topCenter,
-                      child: SingleChildScrollView(
-                        child: StreamBuilder<String>(
-                          stream: EvenAI.textStream,
-                          initialData:
-                              "Press and hold left TouchBar to engage Even AI.",
-                          builder: (context, snapshot) => Obx(
-                            () => EvenAI.isEvenAISyncing.value
-                                ? const SizedBox(
-                                    width: 50,
-                                    height: 50,
-                                    child: CircularProgressIndicator(),
-                                  ) // Color(0xFFFEF991)
-                                : Text(
-                                    snapshot.data ?? "Loading...",
-                                    style: TextStyle(
-                                        fontSize: 14,
-                                        color: BleManager.get().isConnected
-                                            ? Colors.black
-                                            : Colors.grey.withOpacity(0.5)),
-                                    textAlign: TextAlign.center,
-                                  ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-      );
-
-  @override
-  void dispose() {
-    scanTimer?.cancel();
-    isScanning = false;
-    BleManager.get().onStatusChanged = null;
-    super.dispose();
-  }
-}
+                    borderRadius:
