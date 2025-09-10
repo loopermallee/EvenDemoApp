@@ -1,18 +1,16 @@
 // ignore_for_file: library_private_types_in_public_api
 
 import 'dart:async';
-
 import 'package:demo_ai_even/ble_manager.dart';
 import 'package:demo_ai_even/services/evenai.dart';
 import 'package:demo_ai_even/views/even_list_page.dart';
 import 'package:demo_ai_even/views/features_page.dart';
-import 'package:demo_ai_even/views/api_settings_page.dart'; // <-- NEW
+import 'package:demo_ai_even/views/api_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   _HomePageState createState() => _HomePageState();
 }
@@ -35,6 +33,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => isScanning = true);
     await BleManager.get().startScan();
     scanTimer?.cancel();
+    // requires get: you already have it; 15.seconds is provided by get's extension
     scanTimer = Timer(15.seconds, () {
       _stopScan();
     });
@@ -55,13 +54,13 @@ class _HomePageState extends State<HomePage> {
             final glasses = BleManager.get().getPairedGlasses()[index];
             return GestureDetector(
               onTap: () async {
-                String channelNumber = glasses['channelNumber']!;
+                final channelNumber = glasses['channelNumber']!;
                 await BleManager.get().connectToGlasses("Pair_$channelNumber");
                 _refreshPage();
               },
               child: Container(
                 height: 72,
-                padding: const EdgeInsets.only(left: 16, right: 16),
+                padding: const EdgeInsets.symmetric(horizontal: 16),
                 decoration: BoxDecoration(
                   color: Colors.white,
                   borderRadius: BorderRadius.circular(5),
@@ -88,114 +87,111 @@ class _HomePageState extends State<HomePage> {
       );
 
   @override
-  Widget build(BuildContext context) => Scaffold(
-        appBar: AppBar(
-          title: const Text('Even AI Demo'),
-          actions: [
-            // NEW: Settings (gear) to open BYOK screen
-            IconButton(
-              icon: const Icon(Icons.settings),
-              tooltip: 'API Settings',
-              onPressed: () {
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const ApiSettingsPage()),
-                );
-              },
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Even AI Demo'),
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.settings),
+            tooltip: 'API Settings',
+            onPressed: () {
+              Navigator.of(context).push(
+                MaterialPageRoute(builder: (_) => const ApiSettingsPage()),
+              );
+            },
+          ),
+          InkWell(
+            onTap: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const FeaturesPage()),
+              );
+            },
+            splashColor: Colors.transparent,
+            highlightColor: Colors.transparent,
+            child: const Padding(
+              padding: EdgeInsets.only(left: 16, top: 12, bottom: 14, right: 16),
+              child: Icon(Icons.menu),
             ),
-            // Existing menu -> Features page
-            InkWell(
-              onTap: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const FeaturesPage()),
-                );
+          ),
+        ],
+      ),
+      body: Padding(
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 44),
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
+          children: [
+            GestureDetector(
+              onTap: () async {
+                if (BleManager.get().getConnectionStatus() == 'Not connected') {
+                  _startScan();
+                }
               },
-              splashColor: Colors.transparent,
-              highlightColor: Colors.transparent,
-              child: const Padding(
-                padding:
-                    EdgeInsets.only(left: 16, top: 12, bottom: 14, right: 16),
-                child: Icon(Icons.menu),
-              ),
-            ),
-          ],
-        ),
-        body: Padding(
-          padding:
-              const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 44),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.start,
-            children: [
-              GestureDetector(
-                onTap: () async {
-                  if (BleManager.get().getConnectionStatus() ==
-                      'Not connected') {
-                    _startScan();
-                  }
-                },
-                child: Container(
-                  height: 100,
-                  decoration: BoxDecoration(
-                    color: Colors.white,
-                    borderRadius: BorderRadius.circular(5),
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    BleManager.get().getConnectionStatus(),
-                    style: const TextStyle(fontSize: 16),
-                  ),
+              child: Container(
+                height: 100,
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  BleManager.get().getConnectionStatus(),
+                  style: const TextStyle(fontSize: 16),
                 ),
               ),
-              const SizedBox(height: 16),
-              if (BleManager.get().getConnectionStatus() == 'Not connected')
-                blePairedList(),
-              if (BleManager.get().isConnected)
-                Expanded(
-                  child: GestureDetector(
-                    onTap: () async {
-                      Navigator.push(
-                        context,
-                        MaterialPageRoute(
-                          builder: (context) => const EvenAIListPage(),
-                        ),
-                      );
-                    },
-                    child: Container(
-                      color: Colors.white,
-                      padding: const EdgeInsets.all(16),
-                      alignment: Alignment.topCenter,
-                      child: SingleChildScrollView(
-                        child: StreamBuilder<String>(
-                          stream: EvenAI.textStream,
-                          initialData:
-                              "Press and hold left TouchBar to engage Even AI.",
-                          builder: (context, snapshot) => Obx(
-                            () => EvenAI.isEvenAISyncing.value
-                                ? const SizedBox(
-                                    width: 50,
-                                    height: 50,
-                                    child: CircularProgressIndicator(),
-                                  )
-                                : Text(
-                                    snapshot.data ?? "Loading...",
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      color: BleManager.get().isConnected
-                                          ? Colors.black
-                                          : Colors.grey.withOpacity(0.5),
-                                    ),
-                                    textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            if (BleManager.get().getConnectionStatus() == 'Not connected')
+              blePairedList(),
+            if (BleManager.get().isConnected)
+              Expanded(
+                child: GestureDetector(
+                  onTap: () async {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => const EvenAIListPage(),
+                      ),
+                    );
+                  },
+                  child: Container(
+                    color: Colors.white,
+                    padding: const EdgeInsets.all(16),
+                    alignment: Alignment.topCenter,
+                    child: SingleChildScrollView(
+                      child: StreamBuilder<String>(
+                        stream: EvenAI.textStream,
+                        initialData:
+                            "Press and hold left TouchBar to engage Even AI.",
+                        builder: (context, snapshot) => Obx(
+                          () => EvenAI.isEvenAISyncing.value
+                              ? const SizedBox(
+                                  width: 50,
+                                  height: 50,
+                                  child: CircularProgressIndicator(),
+                                )
+                              : Text(
+                                  snapshot.data ?? "Loading...",
+                                  style: TextStyle(
+                                    fontSize: 14,
+                                    color: BleManager.get().isConnected
+                                        ? Colors.black
+                                        : Colors.grey.withOpacity(0.5),
                                   ),
-                          ),
+                                  textAlign: TextAlign.center,
+                                ),
                         ),
                       ),
                     ),
                   ),
                 ),
-            ],
-          ),
+              ),
+          ],
         ),
-      );
+      ),
+    );
+  }
 
   @override
   void dispose() {
