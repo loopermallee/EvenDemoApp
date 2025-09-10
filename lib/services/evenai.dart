@@ -2,36 +2,34 @@
 //
 // BYOK ChatGPT front-door with:
 //  - textStream (phone UI)
-//  - isEvenAISyncing (spinner)
-//  - isEvenAIOpen (compat flag used by app.dart)
-//  - BLE hooks used by BleManager (start/stop/next/prev)
+//  - isEvenAISyncing (GetX)  [kept for your UI spinner]
+//  - isEvenAIOpen (ValueNotifier<bool>)  [ADDED for app.dart]
+//  - BLE hooks (start/stop/next/prev)
 //  - Sends pages to glasses via Proto.sendEvenAIData
-//  - Optional STT support if you added stt_service.dart
 //
 // Requires:
 //   - lib/services/api_services_chatgpt.dart
 //   - lib/services/proto.dart
 //
-// NOTE: We also define EvenAIDataMethod here, because text_service.dart calls it.
+// Note: EvenAIDataMethod is now in its own file: services/evenai_data_method.dart
 
 import 'dart:async';
+import 'package:flutter/foundation.dart'; // ValueNotifier
 import 'package:get/get.dart';
 import 'package:demo_ai_even/services/api_services_chatgpt.dart';
 import 'package:demo_ai_even/services/proto.dart';
-
-// If you added STT earlier, keep this import. If not, you can comment it.
-// It’s safe to leave it imported even if not used on iOS.
+// Optional STT; safe to keep even if Android native provides transcript
 import 'package:demo_ai_even/services/stt_service.dart';
 
 class EvenAI {
   EvenAI._internal();
   static final EvenAI _instance = EvenAI._internal();
-  static EvenAI get() => _instance; // used by BleManager and app.dart
+  static EvenAI get() => _instance; // used by BleManager & elsewhere
 
   // ===== Phone UI state =====
-  static final isEvenAISyncing = false.obs; // spinner
-  static final isEvenAIOpen = false
-      .obs; // <-- ADDED: app.dart expects this to exist (true when listening/active)
+  static final isEvenAISyncing = false.obs;             // GetX spinner
+  static final ValueNotifier<bool> isEvenAIOpen =        // <-- for app.dart line 13
+      ValueNotifier<bool>(false);
 
   static final StreamController<String> _textController =
       StreamController<String>.broadcast();
@@ -56,16 +54,15 @@ class EvenAI {
   void toStartEvenAIByOS() async {
     isEvenAIOpen.value = true;
     isEvenAISyncing.value = true;
+
     _pages = [];
     _pageIndex = 0;
     _textController.add("Listening… (release to send)");
 
-    // If STT service exists, start it. If not, this is a no-op.
+    // Try to start STT plugin (non-fatal if not available)
     try {
       await STTService.instance.startListening();
-    } catch (_) {
-      // Non-fatal; transcript can still arrive from Android native side
-    }
+    } catch (_) {}
   }
 
   /// Glasses say "record over" (event 24)
@@ -73,14 +70,12 @@ class EvenAI {
     try {
       _textController.add("Thinking…");
 
-      // Prefer native transcript if available; else pull from STT plugin if present.
+      // Prefer native transcript; fallback to STT plugin if present
       String transcript = (_pendingTranscript ?? '').trim();
       if (transcript.isEmpty) {
         try {
           transcript = (await STTService.instance.stopAndGetTranscript()).trim();
-        } catch (_) {
-          // ignore
-        }
+        } catch (_) {}
       }
 
       final prompt = transcript.isNotEmpty
@@ -105,31 +100,20 @@ class EvenAI {
       _textController.add("Error: $e");
     } finally {
       isEvenAISyncing.value = false;
-      isEvenAIOpen.value = false; // recording/interaction done
+      isEvenAIOpen.value = false;
       _pendingTranscript = null;
-      // Best effort: stop STT if still running
-      try {
-        await STTService.instance.cancel();
-      } catch (_) {}
+      try { await STTService.instance.cancel(); } catch (_) {}
     }
   }
 
-  /// ADDED: app.dart calls this (stop Even AI immediately)
-  Future<void> stopEvenAIByOS() async {
+  /// STOP immediately (app.dart line 14 expects this; provide both static + instance)
+  static Future<void> stopEvenAIByOS() => _instance._stopEvenAIByOS();
+  Future<void> _stopEvenAIByOS() async {
     try {
-      // Cancel STT if running; do not call ChatGPT
-      try {
-        await STTService.instance.cancel();
-      } catch (_) {}
+      try { await STTService.instance.cancel(); } catch (_) {}
       _pendingTranscript = null;
-
-      // Clear local state
       _pages = [];
       _pageIndex = 0;
-
-      // Optional: tell HUD to exit? (Proto.exit() will close current func)
-      // await Proto.exit();
-
       _textController.add("Stopped.");
     } catch (e) {
       _textController.add("Stopped with error: $e");
@@ -163,9 +147,7 @@ class EvenAI {
   static Future<String> answer({
     required String userText,
     String persona = 'Be concise and structured.',
-  }) {
-    return _api.ask(prompt: userText, persona: persona);
-  }
+  }) => _api.ask(prompt: userText, persona: persona);
 
   // ===== Internals =====
 
@@ -185,6 +167,7 @@ class EvenAI {
 
     var currentLine = '';
     for (final w in words) {
+      if (w.isEmpty) continue;
       if (currentLine.isEmpty) {
         currentLine = w;
       } else if (currentLine.length + 1 + w.length <= maxCharsPerLine) {
@@ -228,42 +211,5 @@ class EvenAI {
       current_page_num: index + 1,
       max_page_num: total,
     );
-  }
-}
-
-///
-/// Helpers expected by text_service.dart
-///
-class EvenAIDataMethod {
-  /// Split long text into lines that fit the HUD (≈34 chars per line), then
-  /// return a list of those lines. text_service.dart pages 5 lines per screen.
-  static List<String> measureStringList(String text,
-      {int maxCharsPerLine = 34}) {
-    final cleaned = text.replaceAll('\r', ' ').replaceAll('\t', ' ');
-    final words = cleaned.split(RegExp(r'\s+'));
-    final lines = <String>[];
-
-    var currentLine = '';
-    for (final w in words) {
-      if (w.isEmpty) continue;
-      if (currentLine.isEmpty) {
-        currentLine = w;
-      } else if (currentLine.length + 1 + w.length <= maxCharsPerLine) {
-        currentLine = "$currentLine $w";
-      } else {
-        lines.add(currentLine);
-        currentLine = w;
-      }
-    }
-    if (currentLine.isNotEmpty) lines.add(currentLine);
-
-    // Safety: never return empty list
-    return lines.isEmpty ? <String>["(no content)"] : lines;
-  }
-
-  /// Your firmware appears to open a new screen when type==0x01.
-  /// Keep it simple and compatible with existing code.
-  static int transferToNewScreen(int type, int status) {
-    return (type == 0x01) ? 1 : 0;
   }
 }
