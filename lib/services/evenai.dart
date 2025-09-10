@@ -1,95 +1,102 @@
 // lib/services/evenai.dart
 //
-// Front-door for AI (BYOK ChatGPT) with UI-friendly stream + spinner.
-// Also provides the BLE-triggered methods your app expects.
-// TEMP: recordOverByOS() uses a sample transcript until we wire real STT.
+// BYOK ChatGPT "front door" with:
+//  - textStream (for phone UI)
+//  - isEvenAISyncing (for spinner)
+//  - BLE hooks EvenAI.get().toStartEvenAIByOS(), recordOverByOS(), next/lastPage
+//  - Sends pages to the glasses via Proto.sendEvenAIData
 //
-// Dependencies:
-//   - lib/services/api_services_chatgpt.dart  (already added)
+// Requires:
+//   - lib/services/api_services_chatgpt.dart  (BYOK client)
+//   - lib/services/proto.dart                 (for BLE page sending)
 
 import 'dart:async';
 import 'package:get/get.dart';
 import 'package:demo_ai_even/services/api_services_chatgpt.dart';
+import 'package:demo_ai_even/services/proto.dart';
 
 class EvenAI {
   EvenAI._internal();
   static final EvenAI _instance = EvenAI._internal();
-  static EvenAI get() => _instance; // for BleManager's EvenAI.get()
+  static EvenAI get() => _instance; // used by BleManager
 
-  // --- Public reactive state used by HomePage ---
+  // For phone UI
   static final isEvenAISyncing = false.obs;
-
   static final StreamController<String> _textController =
       StreamController<String>.broadcast();
   static Stream<String> get textStream => _textController.stream;
 
-  // --- ChatGPT (BYOK) service ---
+  // ChatGPT BYOK
   static final ApiChatGPTService _api = ApiChatGPTService();
 
-  // --- Paging state (for left/right tap) ---
+  // Paging state
   static List<String> _pages = <String>[];
   static int _pageIndex = 0;
 
-  // You can update this from wherever you collect the real transcript.
+  // Where we stash the live transcript until "record over"
   static String? _pendingTranscript;
   static void setTranscript(String text) {
     _pendingTranscript = text;
   }
 
-  // ===== BLE-exposed helpers =====
+  // ===== BLE entry points (these are called from BleManager) =====
 
-  /// Called when glasses send "start Even AI" (0xF5, 0x17).
+  /// Glasses said "start Even AI" (0xF5, index 23)
   void toStartEvenAIByOS() {
     isEvenAISyncing.value = true;
     _pages = [];
     _pageIndex = 0;
     _textController.add("Listening… (release to send)");
+    // If you have an STT start trigger, fire it here.
   }
 
-  /// Called when glasses send "record over" (0xF5, 0x18).
-  /// We take the transcript (TODO: wire your real STT) -> call ChatGPT -> paginate -> show page 1.
+  /// Glasses said "record over" (0xF5, index 24)
+  /// We take whatever transcript we have, call ChatGPT, paginate, send to HUD.
   Future<void> recordOverByOS() async {
-    // TODO: Replace this fallback with your real transcript source.
+    // TODO: wire your real STT transcript into setTranscript() where you capture it.
     final transcript = _pendingTranscript?.trim().isNotEmpty == true
         ? _pendingTranscript!.trim()
-        : "Give 5 short, clear bullet tips for paramedic triage in the field.";
+        : "Give 5 short, clear bullets for paramedic triage in the field."; // fallback demo
 
-    await _askAndPaginate(
+    await _askAndSend(
       userText: transcript,
-      persona:
-          "Paramedic shift assistant. Be concise. Use ≤5 short bullet points.",
+      persona: "Paramedic shift assistant. Be concise. Use ≤5 short bullets.",
     );
   }
 
-  /// Next page on right tap.
+  /// Right tap → next page
   void nextPageByTouchpad() {
     if (_pages.isEmpty) return;
     if (_pageIndex < _pages.length - 1) {
       _pageIndex++;
       _textController.add(_formatPage(_pages[_pageIndex]));
+      // Re-send just this page with updated index (optional)
+      _sendPageToHud(_pages[_pageIndex], _pageIndex, _pages.length, newScreen: 0);
     }
   }
 
-  /// Previous page on left tap.
+  /// Left tap → previous page
   void lastPageByTouchpad() {
     if (_pages.isEmpty) return;
     if (_pageIndex > 0) {
       _pageIndex--;
       _textController.add(_formatPage(_pages[_pageIndex]));
+      // Re-send just this page with updated index (optional)
+      _sendPageToHud(_pages[_pageIndex], _pageIndex, _pages.length, newScreen: 0);
     }
   }
 
-  // ===== Direct call (if you want to bypass BLE flow) =====
+  // ===== Direct helper (if some code wants raw text back) =====
   static Future<String> answer({
     required String userText,
     String persona = 'Be concise and structured.',
-  }) async {
+  }) {
     return _api.ask(prompt: userText, persona: persona);
   }
 
   // ===== Internals =====
 
-  Future<void> _askAndPaginate({
+  Future<void> _askAndSend({
     required String userText,
     required String persona,
   }) async {
@@ -99,21 +106,21 @@ class EvenAI {
 
       final answer = await _api.ask(prompt: userText, persona: persona);
 
-      // Build pages for tap navigation
+      // 1) Build pages for HUD
       _pages = _paginate(answer, maxLinesPerScreen: 5, maxCharsPerLine: 34);
       _pageIndex = 0;
 
-      if (_pages.isEmpty) {
-        _textController.add("(no content)");
-      } else {
-        _textController.add(_formatPage(_pages[_pageIndex]));
-      }
+      // 2) Update phone UI
+      _textController.add(_formatPage(_pages[_pageIndex]));
+
+      // 3) Send ALL pages to the glasses once (first page triggers new screen)
+      await _sendAllPagesToHud(_pages);
+
     } catch (e) {
       _textController.add("Error: $e");
     } finally {
       isEvenAISyncing.value = false;
-      // reset pending transcript after use
-      _pendingTranscript = null;
+      _pendingTranscript = null; // clear after use
     }
   }
 
@@ -154,5 +161,31 @@ class EvenAI {
       pages.add(lines.sublist(i, end).join('\n'));
     }
     return pages.isEmpty ? <String>["(no content)"] : pages;
+  }
+
+  Future<void> _sendAllPagesToHud(List<String> pages) async {
+    final total = pages.length;
+    for (var i = 0; i < total; i++) {
+      final text = pages[i];
+      final isFirst = (i == 0);
+      await _sendPageToHud(text, i, total, newScreen: isFirst ? 1 : 0);
+      // Small pacing gaps if needed; currently omitted.
+    }
+  }
+
+  Future<void> _sendPageToHud(
+    String text,
+    int index,
+    int total, {
+    required int newScreen, // 1 for first page, else 0
+  }) async {
+    // pos is usually 0 for fresh page render
+    await Proto.sendEvenAIData(
+      text,
+      newScreen: newScreen,
+      pos: 0,
+      current_page_num: index + 1,
+      max_page_num: total,
+    );
   }
 }
