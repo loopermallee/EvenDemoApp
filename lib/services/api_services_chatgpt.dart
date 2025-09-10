@@ -51,4 +51,9 @@ class ApiChatGPTService {
     if (r.statusCode != 200) {
       throw Exception('ChatGPT error: ${r.statusCode} ${r.body}');
     }
-    final data =
+    final data = jsonDecode(r.body) as Map<String, dynamic>;
+    final text = (data['choices']?[0]?['message']?['content'] as String? ?? '').trim();
+    if (text.isEmpty) throw Exception('Empty ChatGPT response');
+    return text;
+  }
+}
