@@ -97,4 +97,79 @@ class EvenAI {
     if (_pageIndex > 0) {
       _pageIndex--;
       _textController.add(_formatPage(_pages[_pageIndex]));
-      _sendPageToHud(_pages[_pageIndex], _pageIndex, _pages.length
+      _sendPageToHud(_pages[_pageIndex], _pageIndex, _pages.length, newScreen: 0);
+    }
+  }
+
+  // Optional: direct answer()
+  static Future<String> answer({
+    required String userText,
+    String persona = 'Be concise and structured.',
+  }) {
+    return _api.ask(prompt: userText, persona: persona);
+  }
+
+  // ===== Internals =====
+
+  static String _formatPage(String body) {
+    if (_pages.isEmpty) return body;
+    return "$body\n\n[${_pageIndex + 1}/${_pages.length}]";
+  }
+
+  // Pagination rewritten to avoid StringBuffer.isEmpty
+  static List<String> _paginate(
+    String text, {
+    required int maxLinesPerScreen,
+    required int maxCharsPerLine,
+  }) {
+    final cleaned = text.replaceAll('\r', ' ').replaceAll('\t', ' ');
+    final words = cleaned.split(RegExp(r'\s+'));
+    final lines = <String>[];
+
+    var currentLine = '';
+    for (final w in words) {
+      if (currentLine.isEmpty) {
+        currentLine = w;
+      } else if (currentLine.length + 1 + w.length <= maxCharsPerLine) {
+        currentLine = "$currentLine $w";
+      } else {
+        lines.add(currentLine);
+        currentLine = w;
+      }
+    }
+    if (currentLine.isNotEmpty) lines.add(currentLine);
+
+    final pages = <String>[];
+    for (var i = 0; i < lines.length; i += maxLinesPerScreen) {
+      final end = (i + maxLinesPerScreen > lines.length)
+          ? lines.length
+          : i + maxLinesPerScreen;
+      pages.add(lines.sublist(i, end).join('\n'));
+    }
+    return pages.isEmpty ? <String>["(no content)"] : pages;
+  }
+
+  Future<void> _sendAllPagesToHud(List<String> pages) async {
+    final total = pages.length;
+    for (var i = 0; i < total; i++) {
+      final text = pages[i];
+      final isFirst = (i == 0);
+      await _sendPageToHud(text, i, total, newScreen: isFirst ? 1 : 0);
+    }
+  }
+
+  Future<void> _sendPageToHud(
+    String text,
+    int index,
+    int total, {
+    required int newScreen, // 1 for first page, else 0
+  }) async {
+    await Proto.sendEvenAIData(
+      text,
+      newScreen: newScreen,
+      pos: 0,
+      current_page_num: index + 1,
+      max_page_num: total,
+    );
+  }
+}
