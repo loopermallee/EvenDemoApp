@@ -2,33 +2,31 @@
 //
 // BYOK ChatGPT front-door with:
 //  - textStream (phone UI)
-//  - isEvenAISyncing (GetX)  [kept for your UI spinner]
-//  - isEvenAIOpen (ValueNotifier<bool>)  [ADDED for app.dart]
+//  - isEvenAISyncing (GetX)  [spinner]
+//  - isEvenAIOpen (ValueNotifier<bool>)  [used by app.dart]
 //  - BLE hooks (start/stop/next/prev)
 //  - Sends pages to glasses via Proto.sendEvenAIData
 //
 // Requires:
 //   - lib/services/api_services_chatgpt.dart
 //   - lib/services/proto.dart
-//
-// Note: EvenAIDataMethod is now in its own file: services/evenai_data_method.dart
+//   - lib/services/stt_service.dart (stub provided)
 
 import 'dart:async';
 import 'package:flutter/foundation.dart'; // ValueNotifier
 import 'package:get/get.dart';
 import 'package:demo_ai_even/services/api_services_chatgpt.dart';
 import 'package:demo_ai_even/services/proto.dart';
-// Optional STT; safe to keep even if Android native provides transcript
 import 'package:demo_ai_even/services/stt_service.dart';
 
 class EvenAI {
   EvenAI._internal();
   static final EvenAI _instance = EvenAI._internal();
-  static EvenAI get() => _instance; // used by BleManager & elsewhere
+  static EvenAI get() => _instance; // used by BleManager & others
 
   // ===== Phone UI state =====
-  static final isEvenAISyncing = false.obs;             // GetX spinner
-  static final ValueNotifier<bool> isEvenAIOpen =        // <-- for app.dart line 13
+  static final isEvenAISyncing = false.obs;              // spinner
+  static final ValueNotifier<bool> isEvenAIOpen =         // app.dart expects this
       ValueNotifier<bool>(false);
 
   static final StreamController<String> _textController =
@@ -59,7 +57,7 @@ class EvenAI {
     _pageIndex = 0;
     _textController.add("Listening… (release to send)");
 
-    // Try to start STT plugin (non-fatal if not available)
+    // Start STT if available (non-fatal if not)
     try {
       await STTService.instance.startListening();
     } catch (_) {}
@@ -70,7 +68,7 @@ class EvenAI {
     try {
       _textController.add("Thinking…");
 
-      // Prefer native transcript; fallback to STT plugin if present
+      // Prefer native transcript from Android; fallback to STT stub/plugin if any.
       String transcript = (_pendingTranscript ?? '').trim();
       if (transcript.isEmpty) {
         try {
@@ -106,7 +104,7 @@ class EvenAI {
     }
   }
 
-  /// STOP immediately (app.dart line 14 expects this; provide both static + instance)
+  /// STOP immediately (app.dart calls this statically)
   static Future<void> stopEvenAIByOS() => _instance._stopEvenAIByOS();
   Future<void> _stopEvenAIByOS() async {
     try {
