@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'dart:math';
-import 'package:demo_ai_even/services/evenai.dart';
+import 'package:demo_ai_even/services/evenai_data_method.dart';
 import 'package:demo_ai_even/services/proto.dart';
 
 class TextService {
