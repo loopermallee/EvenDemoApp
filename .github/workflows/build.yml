@@ -15,22 +15,27 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '11'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.3'
+          flutter-version: '3.19.6'
           channel: 'stable'
 
-      - name: Clean Flutter
-        run: flutter clean
+      - name: Clean everything completely
+        run: |
+          flutter clean
+          rm -rf android/.gradle || true
+          rm -rf ~/.gradle || true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build release APK
-        run: flutter build apk --release
+      - name: Build APK with safe settings
+        env:
+          GRADLE_OPTS: "-Xmx3g -XX:+HeapDumpOnOutOfMemoryError"
+        run: flutter build apk --release --verbose
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
