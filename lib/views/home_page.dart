@@ -137,4 +137,71 @@ class _HomePageState extends State<HomePage> {
                   height: 100,
                   decoration: BoxDecoration(
                     color: Colors.white,
-                    borderRadius:
+                    borderRadius: BorderRadius.circular(5),
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    BleManager.get().getConnectionStatus(),
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              if (BleManager.get().getConnectionStatus() == 'Not connected')
+                blePairedList(),
+              if (BleManager.get().isConnected)
+                Expanded(
+                  child: GestureDetector(
+                    onTap: () async {
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(
+                          builder: (context) => const EvenAIListPage(),
+                        ),
+                      );
+                    },
+                    child: Container(
+                      color: Colors.white,
+                      padding: const EdgeInsets.all(16),
+                      alignment: Alignment.topCenter,
+                      child: SingleChildScrollView(
+                        child: StreamBuilder<String>(
+                          stream: EvenAI.textStream,
+                          initialData:
+                              "Press and hold left TouchBar to engage Even AI.",
+                          builder: (context, snapshot) => Obx(
+                            () => EvenAI.isEvenAISyncing.value
+                                ? const SizedBox(
+                                    width: 50,
+                                    height: 50,
+                                    child: CircularProgressIndicator(),
+                                  )
+                                : Text(
+                                    snapshot.data ?? "Loading...",
+                                    style: TextStyle(
+                                      fontSize: 14,
+                                      color: BleManager.get().isConnected
+                                          ? Colors.black
+                                          : Colors.grey.withOpacity(0.5),
+                                    ),
+                                    textAlign: TextAlign.center,
+                                  ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      );
+
+  @override
+  void dispose() {
+    scanTimer?.cancel();
+    isScanning = false;
+    BleManager.get().onStatusChanged = null;
+    super.dispose();
+  }
+}
