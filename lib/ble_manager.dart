@@ -31,10 +31,11 @@ class BleManager {
       .receiveBroadcastStream(_eventBleReceive)
       .map((ret) => BleReceive.fromMap(ret));
 
-  // NEW: listen for transcript maps like {"script": "final text"}
   final speechStream = const EventChannel(_eventSpeechRecognize)
-      .receiveBroadcastStream(_eventSpeechRecognize)
-      .map((ret) => ret as Map);
+      .receiveBroadcastStream(_eventSpeechRecognize);
+
+  StreamSubscription? _bleReceiveSub;
+  StreamSubscription? _speechSub;
 
   Timer? beatHeartTimer;
 
@@ -45,22 +46,30 @@ class BleManager {
   void _init() {}
 
   void startListening() {
-    eventBleReceive.listen(_handleReceivedData);
+    // Avoid double subscriptions
+    _bleReceiveSub?.cancel();
+    _speechSub?.cancel();
 
-    // NEW: Android native will push transcript maps on this channel
-    speechStream.listen((map) {
+    _bleReceiveSub = eventBleReceive.listen(_handleReceivedData);
+
+    _speechSub = speechStream.listen((obj) {
       try {
+        if (obj == null) return;
+        final map = (obj is Map)
+            ? Map<String, dynamic>.from(obj as Map)
+            : <String, dynamic>{};
         final script = (map['script'] as String?)?.trim() ?? '';
         if (script.isNotEmpty) {
-          // Stash transcript so EvenAI.recordOverByOS() can use it
           EvenAI.setTranscript(script);
           // If your native layer does NOT send the "record over" event (24),
           // you can uncomment the next line to auto-complete:
           // EvenAI.get().recordOverByOS();
         }
       } catch (e) {
-        print('speechStream parse error: $e');
+        print('speechStream parse error: $e | obj=$obj');
       }
+    }, onError: (e, st) {
+      print('speechStream error: $e');
     });
   }
 
@@ -107,9 +116,6 @@ class BleManager {
       case 'foundPairedGlasses':
         _onPairedGlassesFound(Map<String, String>.from(call.arguments));
         break;
-
-      // If Android ever invokes a method to deliver script instead of EventChannel,
-      // you can handle it here too:
       case 'speechScript':
         try {
           final args = Map.from(call.arguments as Map);
@@ -123,7 +129,6 @@ class BleManager {
           print('speechScript handler error: $e');
         }
         break;
-
       default:
         print('Unknown method: ${call.method}');
     }
@@ -175,7 +180,6 @@ class BleManager {
 
   void _handleReceivedData(BleReceive res) {
     if (res.type == "VoiceChunk") {
-      // Android might also stream raw audio chunks; we ignore them here.
       return;
     }
 
@@ -197,10 +201,10 @@ class BleManager {
             EvenAI.get().nextPageByTouchpad();
           }
           break;
-        case 23: // evenaiStart
+        case 23:
           EvenAI.get().toStartEvenAIByOS();
           break;
-        case 24: // evenaiRecordOver
+        case 24:
           EvenAI.get().recordOverByOS();
           break;
         default:
@@ -354,7 +358,6 @@ class BleManager {
   }
 
   static bool isBothConnected() {
-    // Future: check both legs if needed. For now, returns true.
     return true;
   }
 
