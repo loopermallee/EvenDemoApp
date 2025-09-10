@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:demo_ai_even/app.dart';
 import 'package:demo_ai_even/services/ble.dart';
 import 'package:demo_ai_even/services/evenai.dart';
@@ -9,7 +10,7 @@ typedef SendResultParse = bool Function(Uint8List value);
 
 class BleManager {
   Function()? onStatusChanged;
-  BleManager._() {}
+  BleManager._();
 
   static BleManager? _instance;
   static BleManager get() {
@@ -20,16 +21,23 @@ class BleManager {
     return _instance!;
   }
 
+  // ===== Channels =====
   static const methodSend = "send";
   static const _eventBleReceive = "eventBleReceive";
+  static const _eventSpeechRecognize = "eventSpeechRecognize"; // <-- from Android BleChannelHelper.kt
   static const _channel = MethodChannel('method.bluetooth');
-  
+
   final eventBleReceive = const EventChannel(_eventBleReceive)
       .receiveBroadcastStream(_eventBleReceive)
       .map((ret) => BleReceive.fromMap(ret));
 
+  // NEW: listen for transcript maps like {"script": "final text"}
+  final speechStream = const EventChannel(_eventSpeechRecognize)
+      .receiveBroadcastStream(_eventSpeechRecognize)
+      .map((ret) => ret as Map);
+
   Timer? beatHeartTimer;
-  
+
   final List<Map<String, String>> pairedGlasses = [];
   bool isConnected = false;
   String connectionStatus = 'Not connected';
@@ -37,8 +45,22 @@ class BleManager {
   void _init() {}
 
   void startListening() {
-    eventBleReceive.listen((res) {
-      _handleReceivedData(res);
+    eventBleReceive.listen(_handleReceivedData);
+
+    // NEW: Android native will push transcript maps on this channel
+    speechStream.listen((map) {
+      try {
+        final script = (map['script'] as String?)?.trim() ?? '';
+        if (script.isNotEmpty) {
+          // Stash transcript so EvenAI.recordOverByOS() can use it
+          EvenAI.setTranscript(script);
+          // If your native layer does NOT send the "record over" event (24),
+          // you can uncomment the next line to auto-complete:
+          // EvenAI.get().recordOverByOS();
+        }
+      } catch (e) {
+        print('speechStream parse error: $e');
+      }
     });
   }
 
@@ -85,6 +107,23 @@ class BleManager {
       case 'foundPairedGlasses':
         _onPairedGlassesFound(Map<String, String>.from(call.arguments));
         break;
+
+      // If Android ever invokes a method to deliver script instead of EventChannel,
+      // you can handle it here too:
+      case 'speechScript':
+        try {
+          final args = Map.from(call.arguments as Map);
+          final script = (args['script'] as String?)?.trim() ?? '';
+          if (script.isNotEmpty) {
+            EvenAI.setTranscript(script);
+            // Optionally auto-complete:
+            // EvenAI.get().recordOverByOS();
+          }
+        } catch (e) {
+          print('speechScript handler error: $e');
+        }
+        break;
+
       default:
         print('Unknown method: ${call.method}');
     }
@@ -94,7 +133,6 @@ class BleManager {
     print("_onGlassesConnected----arguments----$arguments------");
     connectionStatus = 'Connected: \n${arguments['leftDeviceName']} \n${arguments['rightDeviceName']}';
     isConnected = true;
-
     onStatusChanged?.call();
     startSendBeatHeart();
   }
@@ -104,7 +142,7 @@ class BleManager {
     beatHeartTimer?.cancel();
     beatHeartTimer = null;
 
-    beatHeartTimer = Timer.periodic(Duration(seconds: 8), (timer) async {
+    beatHeartTimer = Timer.periodic(const Duration(seconds: 8), (timer) async {
       bool isSuccess = await Proto.sendHeartBeat();
       if (!isSuccess && tryTime < 2) {
         tryTime++;
@@ -117,82 +155,70 @@ class BleManager {
 
   void _onGlassesConnecting() {
     connectionStatus = 'Connecting...';
-
-      onStatusChanged?.call();
+    onStatusChanged?.call();
   }
 
   void _onGlassesDisconnected() {
     connectionStatus = 'Not connected';
     isConnected = false;
-
     onStatusChanged?.call();
   }
 
   void _onPairedGlassesFound(Map<String, String> deviceInfo) {
     final String channelNumber = deviceInfo['channelNumber']!;
     final isAlreadyPaired = pairedGlasses.any((glasses) => glasses['channelNumber'] == channelNumber);
-
     if (!isAlreadyPaired) {
       pairedGlasses.add(deviceInfo);
     }
-
     onStatusChanged?.call();
   }
 
   void _handleReceivedData(BleReceive res) {
     if (res.type == "VoiceChunk") {
+      // Android might also stream raw audio chunks; we ignore them here.
       return;
     }
 
     String cmd = "${res.lr}${res.getCmd().toRadixString(16).padLeft(2, '0')}";
     if (res.getCmd() != 0xf1) {
-      print(
-        "${DateTime.now()} BleManager receive cmd: $cmd, len: ${res.data.length}, data = ${res.data.hexString}",
-      );
+      print("${DateTime.now()} BleManager receive cmd: $cmd, len: ${res.data.length}, data = ${res.data.hexString}");
     }
 
     if (res.data[0].toInt() == 0xF5) {
       final notifyIndex = res.data[1].toInt();
-      
       switch (notifyIndex) {
         case 0:
           App.get.exitAll();
           break;
-        case 1: 
+        case 1:
           if (res.lr == 'L') {
-            EvenAI.get.lastPageByTouchpad();
+            EvenAI.get().lastPageByTouchpad();
           } else {
-            EvenAI.get.nextPageByTouchpad();
+            EvenAI.get().nextPageByTouchpad();
           }
           break;
-        case 23: //BleEvent.evenaiStart:
-          EvenAI.get.toStartEvenAIByOS();
+        case 23: // evenaiStart
+          EvenAI.get().toStartEvenAIByOS();
           break;
-        case 24: //BleEvent.evenaiRecordOver:
-          EvenAI.get.recordOverByOS();
+        case 24: // evenaiRecordOver
+          EvenAI.get().recordOverByOS();
           break;
         default:
           print("Unknown Ble Event: $notifyIndex");
       }
       return;
     }
-      _reqListen.remove(cmd)?.complete(res);
-      _reqTimeout.remove(cmd)?.cancel();
-      if (_nextReceive != null) {
-        _nextReceive?.complete(res);
-        _nextReceive = null;
-      }
 
+    _reqListen.remove(cmd)?.complete(res);
+    _reqTimeout.remove(cmd)?.cancel();
+    if (_nextReceive != null) {
+      _nextReceive?.complete(res);
+      _nextReceive = null;
+    }
   }
 
-  String getConnectionStatus() {
-    return connectionStatus;
-  }
-
-  List<Map<String, String>> getPairedGlasses() {
-    return pairedGlasses;
-  }
-
+  String getConnectionStatus() => connectionStatus;
+  List<Map<String, String>> getPairedGlasses() => pairedGlasses;
 
   static final _reqListen = <String, Completer<BleReceive>>{};
   static final _reqTimeout = <String, Timer>{};
@@ -205,12 +231,9 @@ class BleManager {
     if (cb != null) {
       var res = BleReceive();
       res.isTimeout = true;
-      //var showData = data.length > 50 ? data.sublist(0, 50) : data;
-      print(
-          "send Timeout $cmd of $timeoutMs");
+      print("send Timeout $cmd of $timeoutMs");
       cb.complete(res);
     }
-
     _reqTimeout[cmd]?.cancel();
     _reqTimeout.remove(cmd);
   }
@@ -229,19 +252,13 @@ class BleManager {
   }) async {
     BleReceive ret;
     for (var i = 0; i <= retry; i++) {
-      ret = await request(data,
-          lr: lr, other: other, timeoutMs: timeoutMs, useNext: useNext);
-      if (!ret.isTimeout) {
-        return ret;
-      }
-      if (!BleManager.isBothConnected()) {
-        break;
-      }
+      ret = await request(data, lr: lr, other: other, timeoutMs: timeoutMs, useNext: useNext);
+      if (!ret.isTimeout) return ret;
+      if (!BleManager.isBothConnected()) break;
     }
     ret = BleReceive();
     ret.isTimeout = true;
-    print(
-        "requestRetry $lr timeout of $timeoutMs");
+    print("requestRetry $lr timeout of $timeoutMs");
     return ret;
   }
 
@@ -251,66 +268,50 @@ class BleManager {
     SendResultParse? isSuccess,
     int? retry,
   }) async {
-
-    var ret = await BleManager.requestRetry(data,
-        lr: "L", timeoutMs: timeoutMs, retry: retry ?? 0);
+    var ret = await BleManager.requestRetry(data, lr: "L", timeoutMs: timeoutMs, retry: retry ?? 0);
     if (ret.isTimeout) {
       print("sendBoth L timeout");
-
       return false;
     } else if (isSuccess != null) {
       final success = isSuccess.call(ret.data);
       if (!success) return false;
-      var retR = await BleManager.requestRetry(data,
-          lr: "R", timeoutMs: timeoutMs, retry: retry ?? 0);
+      var retR = await BleManager.requestRetry(data, lr: "R", timeoutMs: timeoutMs, retry: retry ?? 0);
       if (retR.isTimeout) return false;
       return isSuccess.call(retR.data);
     } else if (ret.data[1].toInt() == 0xc9) {
-      var ret = await BleManager.requestRetry(data,
-          lr: "R", timeoutMs: timeoutMs, retry: retry ?? 0);
-      if (ret.isTimeout) return false;
+      var ret2 = await BleManager.requestRetry(data, lr: "R", timeoutMs: timeoutMs, retry: retry ?? 0);
+      if (ret2.isTimeout) return false;
     }
     return true;
   }
 
-  static Future sendData(Uint8List data,
-      {String? lr, Map<String, dynamic>? other, int secondDelay = 100}) async {
+  static Future sendData(Uint8List data, {String? lr, Map<String, dynamic>? other, int secondDelay = 100}) async {
+    var params = <String, dynamic>{'data': data};
+    if (other != null) params.addAll(other);
 
-    var params = <String, dynamic>{
-      'data': data,
-    };
-    if (other != null) {
-      params.addAll(other);
-    }
     dynamic ret;
     if (lr != null) {
       params["lr"] = lr;
       ret = await BleManager.invokeMethod(methodSend, params);
       return ret;
     } else {
-      params["lr"] = "L"; // get().slave; 
-      var ret = await _channel
-          .invokeMethod(methodSend, params); //ret is true or false or null
-      if (ret == true) {
-        params["lr"] = "R"; // get().master;
+      params["lr"] = "L";
+      var retL = await _channel.invokeMethod(methodSend, params);
+      if (retL == true) {
+        params["lr"] = "R";
         ret = await BleManager.invokeMethod(methodSend, params);
         return ret;
       }
       if (secondDelay > 0) {
         await Future.delayed(Duration(milliseconds: secondDelay));
       }
-      params["lr"] = "R"; // get().master;
+      params["lr"] = "R";
       ret = await BleManager.invokeMethod(methodSend, params);
       return ret;
     }
   }
 
-  static Future<BleReceive> request(Uint8List data,
-      {String? lr,
-      Map<String, dynamic>? other,
-      int timeoutMs = 1000, //500,
-      bool useNext = false}) async {
-
+  static Future<BleReceive> request(Uint8List data, {String? lr, Map<String, dynamic>? other, int timeoutMs = 1000, bool useNext = false}) async {
     var lr0 = lr ?? Proto.lR();
     var completer = Completer<BleReceive>();
     String cmd = "$lr0${data[0].toRadixString(16).padLeft(2, '0')}";
@@ -323,7 +324,6 @@ class BleManager {
         res.isTimeout = true;
         _reqListen[cmd]?.complete(res);
         print("already exist key: $cmd");
-
         _reqTimeout[cmd]?.cancel();
       }
       _reqListen[cmd] = completer;
@@ -341,7 +341,7 @@ class BleManager {
     });
 
     await sendData(data, lr: lr, other: other).timeout(
-      Duration(seconds: 2),
+      const Duration(seconds: 2),
       onTimeout: () {
         _reqTimeout.remove(cmd)?.cancel();
         var ret = BleReceive();
@@ -354,9 +354,7 @@ class BleManager {
   }
 
   static bool isBothConnected() {
-    //return isConnectedL() && isConnectedR();
-
-    // todo
+    // Future: check both legs if needed. For now, returns true.
     return true;
   }
 
@@ -384,8 +382,7 @@ class BleManager {
     return false;
   }
 
-  static Future<bool> _requestList(List sendList, String lr,
-      {bool keepLast = false, int? timeoutMs}) async {
+  static Future<bool> _requestList(List sendList, String lr, {bool keepLast = false, int? timeoutMs}) async {
     int len = sendList.length;
     if (keepLast) len = sendList.length - 1;
     for (var i = 0; i < len; i++) {
@@ -399,11 +396,8 @@ class BleManager {
     }
     return true;
   }
-
 }
 
 extension Uint8ListEx on Uint8List {
-  String get hexString {
-    return map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
-  }
+  String get hexString => map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
 }
