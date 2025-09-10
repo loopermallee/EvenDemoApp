@@ -1,20 +1,36 @@
 // lib/services/stt_service.dart
-//
-// Minimal no-op STT stub so EvenAI compiles.
-// We already get transcripts from Android via the EventChannel
-// "eventSpeechRecognize", so this stub just does nothing.
+import 'dart:async';
 
 class STTService {
   STTService._();
   static final STTService instance = STTService._();
 
-  // Pretend to start listening; Android native handles real capture.
-  Future<bool> startListening() async => true;
+  bool _isListening = false;
+  final StreamController<String> _transcriptController = StreamController.broadcast();
 
-  // Return empty so EvenAI falls back to the native transcript
-  // (set via EvenAI.setTranscript(...)).
-  Future<String> stopAndGetTranscript() async => '';
+  Stream<String> get transcriptStream => _transcriptController.stream;
 
-  // Nothing to cancel in the stub, but keep the API.
-  Future<void> cancel() async {}
+  Future<void> startListening({String language = "en-US"}) async {
+    _isListening = true;
+    // TODO: Call into platform (iOS/Android) via MethodChannel/EventChannel
+    print("STTService: startListening in $language");
+  }
+
+  Future<String> stopAndGetTranscript() async {
+    _isListening = false;
+    // TODO: return final recognized text from native side
+    print("STTService: stopAndGetTranscript");
+    return "Stub transcript"; // Replace with real result
+  }
+
+  Future<void> cancel() async {
+    _isListening = false;
+    print("STTService: cancel");
+  }
+
+  bool get isListening => _isListening;
+
+  void dispose() {
+    _transcriptController.close();
+  }
 }
