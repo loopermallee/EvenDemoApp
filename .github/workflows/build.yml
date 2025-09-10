@@ -15,27 +15,32 @@ jobs:
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '11'
+          java-version: '17'
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.22.3'
+          flutter-version: '3.24.3'
           channel: 'stable'
 
-      - name: Clean everything completely
+      - name: Override Gradle JVM Args
+        run: |
+          mkdir -p ~/.gradle
+          echo "org.gradle.jvmargs=-Xmx3g -XX:+HeapDumpOnOutOfMemoryError --add-opens=java.base/java.util=ALL-UNNAMED --add-opens=java.base/java.lang=ALL-UNNAMED" > ~/.gradle/gradle.properties
+          echo "org.gradle.daemon=false" >> ~/.gradle/gradle.properties
+
+      - name: Clean everything
         run: |
           flutter clean
           rm -rf android/.gradle || true
-          rm -rf ~/.gradle || true
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build APK with safe settings
-        env:
-          GRADLE_OPTS: "-Xmx3g -XX:+HeapDumpOnOutOfMemoryError"
-        run: flutter build apk --release --verbose
+      - name: Build APK with overridden settings
+        run: |
+          export GRADLE_OPTS="-Xmx3g -XX:+HeapDumpOnOutOfMemoryError"
+          flutter build apk --release --verbose
 
       - name: Upload artifact
         uses: actions/upload-artifact@v4
