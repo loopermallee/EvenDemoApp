@@ -178,8 +178,10 @@ class BleManager {
     onStatusChanged?.call();
   }
 
+  // 🔧 FIXED: Now processes audio chunks instead of ignoring them
   void _handleReceivedData(BleReceive res) {
     if (res.type == "VoiceChunk") {
+      _processAudioChunk(res.data, res.lr);
       return;
     }
 
@@ -218,6 +220,21 @@ class BleManager {
     if (_nextReceive != null) {
       _nextReceive?.complete(res);
       _nextReceive = null;
+    }
+  }
+
+  // 🔧 NEW: Process audio chunks for STT
+  void _processAudioChunk(Uint8List audioData, String lr) {
+    try {
+      print("📡 Processing audio chunk: ${audioData.length} bytes from $lr");
+      
+      _channel.invokeMethod('processAudioChunk', {
+        'audioData': audioData,
+        'lr': lr,
+        'timestamp': DateTime.now().millisecondsSinceEpoch,
+      });
+    } catch (e) {
+      print('Error processing audio chunk: $e');
     }
   }
 
