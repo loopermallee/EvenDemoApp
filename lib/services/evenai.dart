@@ -92,11 +92,11 @@ class EvenAI {
 
       final prompt = transcript.isNotEmpty
           ? transcript
-          : "Give 5 short, clear bullets for paramedic triage in the field.";
+          : "What are the key steps in emergency patient assessment?";
 
       final answer = await _api.ask(
         prompt: prompt,
-        persona: "Paramedic shift assistant. Be concise. Use ≤5 short bullets.",
+        persona: "Provide clear, structured explanations optimized for small screen display. Use 3-5 main points with brief supporting details. Keep each line under 34 characters. Structure as bullet points when possible. Be comprehensive but concise - aim for 100-150 words total that can be split across 2-3 screen pages.",
       );
 
       // Build pages for HUD
@@ -158,7 +158,7 @@ class EvenAI {
   // Optional: direct answer()
   static Future<String> answer({
     required String userText,
-    String persona = 'Be concise and structured.',
+    String persona = 'Provide clear, structured explanations optimized for small screen display.',
   }) => _api.ask(prompt: userText, persona: persona);
 
   // ===== Internals =====
