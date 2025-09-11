@@ -8,27 +8,32 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
+// Move globals here so BleManager.kt can use them without a separate file.
+lateinit var bleMC: MethodChannel
+lateinit var bleReceive: EventChannel
+
 object BleChannelHelper {
     private const val TAG = "BleChannelHelper"
-    private const val METHOD_BLUETOOTH = "method.bluetooth"
-    private const val EVENT_BLE_RECEIVE = "eventBleReceive"
-    private const val METHOD_SPEECH = "method.speech"
-    private const val EVENT_SPEECH = "eventSpeechRecognize"
+
+    private const val METHOD_BLUETOOTH = "method.bluetooth"        // Flutter → Android (BLE)
+    private const val EVENT_BLE_RECEIVE = "eventBleReceive"        // Android → Flutter (BLE)
+    private const val METHOD_SPEECH = "method.speech"              // Flutter → Android (STT)
+    private const val EVENT_SPEECH = "eventSpeechRecognize"        // Android → Flutter (STT)
 
     private val sinks: MutableMap<String, EventChannel.EventSink> = mutableMapOf()
 
     fun initChannel(activity: Activity, flutterEngine: FlutterEngine) {
-        // --- BLE channels (assign globals) ---
+        // BLE channels (assign globals)
         bleReceive = EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_BLE_RECEIVE)
         bleReceive.setStreamHandler(activity as? EventChannel.StreamHandler)
 
         bleMC = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_BLUETOOTH)
         bleMC.setMethodCallHandler { call, result ->
-            // TODO: put your BLE method handlers back here if you had them
+            // TODO: restore your BLE handlers if you had them
             result.notImplemented()
         }
 
-        // --- Speech channels ---
+        // Speech channels
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_SPEECH)
             .setStreamHandler(activity as? EventChannel.StreamHandler)
 
@@ -36,8 +41,7 @@ object BleChannelHelper {
             .setMethodCallHandler { call: MethodCall, result: MethodChannel.Result ->
                 when (call.method) {
                     "start" -> SpeechBridge.start(activity) { ok, err ->
-                        if (ok) result.success(true)
-                        else result.error("speech_start_failed", err ?: "unknown", null)
+                        if (ok) result.success(true) else result.error("speech_start_failed", err ?: "unknown", null)
                     }
                     "stop" -> { SpeechBridge.stop(finalize = true); result.success(true) }
                     "cancel" -> { SpeechBridge.stop(finalize = false); result.success(true) }
@@ -45,7 +49,7 @@ object BleChannelHelper {
                 }
             }
 
-        // Forward STT results to Flutter
+        // Forward STT partial/final text to Flutter
         SpeechBridge.init(activity) { text, isFinal ->
             emit(EVENT_SPEECH, mapOf("script" to (text ?: ""), "isFinal" to isFinal))
         }
