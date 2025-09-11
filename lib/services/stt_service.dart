@@ -13,8 +13,7 @@ class STTService {
   static final STTService instance = STTService._();
 
   final _method = const MethodChannel('method.speech');
-  // NOTE: BleManager already listens to 'eventSpeechRecognize' and forwards to EvenAI.setTranscript().
-  // We also listen here so stopAndGetTranscript() can return a final string if EvenAI asks for it.
+  // NOTE: BleManager also listens to 'eventSpeechRecognize' and forwards to EvenAI.setTranscript().
   final _event = const EventChannel('eventSpeechRecognize');
 
   String _latestPartial = '';
@@ -32,7 +31,6 @@ class STTService {
           _latestPartial = text;
         }
       } else if (data is String) {
-        // If native ever sends plain string
         _latestPartial = data;
       }
     }, onError: (_) {
@@ -54,10 +52,7 @@ class STTService {
   Future<String> stopAndGetTranscript() async {
     try {
       await _method.invokeMethod('stop');
-    } catch (_) {
-      // ignored
-    }
-    // Prefer final; if not present, return best partial
+    } catch (_) {}
     if (_finalText.trim().isNotEmpty) return _finalText.trim();
     if (_latestPartial.trim().isNotEmpty) return _latestPartial.trim();
     return '';
@@ -66,9 +61,7 @@ class STTService {
   Future<void> cancel() async {
     try {
       await _method.invokeMethod('cancel');
-    } catch (_) {
-      // ignored
-    }
+    } catch (_) {}
     _latestPartial = '';
     _finalText = '';
   }
