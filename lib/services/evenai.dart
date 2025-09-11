@@ -44,6 +44,20 @@ class EvenAI {
   static String? _pendingTranscript;
   static void setTranscript(String text) {
     _pendingTranscript = text;
+    
+    // Display real-time transcription on glasses
+    if (isEvenAIOpen.value && text.trim().isNotEmpty) {
+      _textController.add("Listening: $text");
+      
+      // Send to glasses display immediately
+      Proto.sendEvenAIData(
+        "🎤 $text",
+        newScreen: 1,
+        pos: 0,
+        current_page_num: 1,
+        max_page_num: 1,
+      );
+    }
   }
 
   // ===== BLE entry points =====
