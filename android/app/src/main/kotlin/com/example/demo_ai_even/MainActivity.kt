@@ -22,25 +22,33 @@ class MainActivity : FlutterActivity() {
     companion object {
         private const val TAG = "MainActivitySTT"
         private const val REQ_RECORD_AUDIO = 1011
-        private const val EVENT_SPEECH = "eventSpeechRecognize"
-        private const val METHOD_SPEECH = "method.speech"
+        private const val EVENT_SPEECH = "eventSpeechRecognize"   // Android → Flutter
+        private const val METHOD_SPEECH = "method.speech"          // Flutter → Android
     }
 
-    // ---- Speech state ----
+    // -------- Speech state --------
     private var speechRecognizer: SpeechRecognizer? = null
     private var recognizerIntent: Intent? = null
     private var isListening = false
     private var speechEventsSink: EventChannel.EventSink? = null
 
-    // ---- Throttle partials to reduce UI/BT load ----
+    // throttle partials for smoother UI/BLE
     private var lastPartial = ""
     private var lastEmitUptime = 0L
-    private val partialThrottleMs = 80L // fast but not spammy
+    private val partialThrottleMs = 80L
+
+    override fun onCreate(savedInstanceState: Bundle?) {
+        super.onCreate(savedInstanceState)
+        // If you had BLE native init before, you can keep it here.
+        // Example from your earlier file:
+        // com.example.demo_ai_even.cpp.Cpp.init()
+        // com.example.demo_ai_even.bluetooth.BleManager.instance.initBluetooth(this)
+    }
 
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
 
-        // EventChannel: Android → Flutter
+        // EventChannel: Android → Flutter (stream transcripts)
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_SPEECH)
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
@@ -51,7 +59,7 @@ class MainActivity : FlutterActivity() {
                 }
             })
 
-        // MethodChannel: Flutter → Android
+        // MethodChannel: Flutter → Android (start/stop/cancel)
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_SPEECH)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
@@ -69,7 +77,7 @@ class MainActivity : FlutterActivity() {
                     }
                     else -> result.notImplemented()
                 }
-            }
+            })
     }
 
     // -------- Permissions --------
@@ -109,14 +117,10 @@ class MainActivity : FlutterActivity() {
             putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
             putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, true)
             putExtra(RecognizerIntent.EXTRA_MAX_RESULTS, 1)
-            putExtra(RecognizerIntent.EXTRA_CALLING_PACKAGE, packageName)
-
-            // Make final result arrive quickly after you stop talking:
+            // Faster finalization after silence:
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_COMPLETE_SILENCE_LENGTH_MILLIS, 500)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_POSSIBLY_COMPLETE_SILENCE_LENGTH_MILLIS, 500)
             putExtra(RecognizerIntent.EXTRA_SPEECH_INPUT_MINIMUM_LENGTH_MILLIS, 300)
-
-            // Prefer offline if available (Android may ignore if unavailable):
             putExtra("android.speech.extra.PREFER_OFFLINE", true)
         }
     }
@@ -134,26 +138,19 @@ class MainActivity : FlutterActivity() {
                 override fun onError(error: Int) {
                     Log.w(TAG, "onError: $error")
                     isListening = false
-                    // Emit an empty final so Flutter flow can continue gracefully
+                    // Emit empty final so Flutter flow continues gracefully
                     speechEventsSink?.success(mapOf("script" to "", "isFinal" to true))
                 }
 
                 override fun onResults(results: Bundle?) {
                     isListening = false
-                    val text = results
-                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
-                        .orEmpty()
+                    val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
                     speechEventsSink?.success(mapOf("script" to text, "isFinal" to true))
                 }
 
                 override fun onPartialResults(partialResults: Bundle?) {
-                    val text = partialResults
-                        ?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)
-                        ?.firstOrNull()
-                        .orEmpty()
+                    val text = partialResults?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull().orEmpty()
                     val now = SystemClock.uptimeMillis()
-                    // Only emit if changed and we’re past throttle window
                     if (text.isNotEmpty() && text != lastPartial && now - lastEmitUptime >= partialThrottleMs) {
                         lastPartial = text
                         lastEmitUptime = now
