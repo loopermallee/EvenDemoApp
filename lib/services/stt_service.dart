@@ -31,7 +31,6 @@ class STTService {
         final isFinal = data['isFinal'] == true;
         if (isFinal) {
           _finalText = text;
-          // Notify any waiter (stopAndGetTranscript)
           if (!_finalController.isClosed) _finalController.add(_finalText);
         } else {
           _latestPartial = text;
@@ -40,17 +39,13 @@ class STTService {
         _latestPartial = data;
       }
     }, onError: (_) {
-      // no-op; EvenAI handles empty transcript cases
+      // no-op
     });
   }
 
   Future<bool> startListening() async {
     _latestPartial = '';
     _finalText = '';
-    // reset final stream
-    if (_finalController.isClosed) {
-      // shouldn't be closed, but guard anyway
-    }
     try {
       await _method.invokeMethod('start');
       return true;
@@ -64,9 +59,7 @@ class STTService {
       await _method.invokeMethod('stop');
     } catch (_) {}
 
-    // Wait briefly for a final result (Android returns fast with our 500ms silence)
     try {
-      // Wait up to 900ms for final; fall back to best partial
       final text = await _finalController.stream.first.timeout(
         const Duration(milliseconds: 900),
         onTimeout: () => _finalText.isNotEmpty ? _finalText : _latestPartial,
