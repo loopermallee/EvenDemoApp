@@ -1,1 +1,0 @@
-Delete wrong SpeechBridge file
