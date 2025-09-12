@@ -8,17 +8,16 @@ import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
 
-// Move globals here so BleManager.kt can use them without a separate file.
+// Top-level globals (so BleManager can use them)
 lateinit var bleMC: MethodChannel
 lateinit var bleReceive: EventChannel
 
 object BleChannelHelper {
     private const val TAG = "BleChannelHelper"
-
-    private const val METHOD_BLUETOOTH = "method.bluetooth"        // Flutter → Android (BLE)
-    private const val EVENT_BLE_RECEIVE = "eventBleReceive"        // Android → Flutter (BLE)
-    private const val METHOD_SPEECH = "method.speech"              // Flutter → Android (STT)
-    private const val EVENT_SPEECH = "eventSpeechRecognize"        // Android → Flutter (STT)
+    private const val METHOD_BLUETOOTH = "method.bluetooth"
+    private const val EVENT_BLE_RECEIVE = "eventBleReceive"
+    private const val METHOD_SPEECH = "method.speech"
+    private const val EVENT_SPEECH = "eventSpeechRecognize"
 
     private val sinks: MutableMap<String, EventChannel.EventSink> = mutableMapOf()
 
@@ -29,7 +28,7 @@ object BleChannelHelper {
 
         bleMC = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_BLUETOOTH)
         bleMC.setMethodCallHandler { call, result ->
-            // TODO: restore your BLE handlers if you had them
+            // TODO: restore BLE handlers if you had them
             result.notImplemented()
         }
 
@@ -49,7 +48,6 @@ object BleChannelHelper {
                 }
             }
 
-        // Forward STT partial/final text to Flutter
         SpeechBridge.init(activity) { text, isFinal ->
             emit(EVENT_SPEECH, mapOf("script" to (text ?: ""), "isFinal" to isFinal))
         }
@@ -60,13 +58,11 @@ object BleChannelHelper {
         sinks[channelName] = sink
         Log.i(TAG, "addEventSink: $channelName")
     }
-
     fun removeEventSink(channelName: String?) {
         if (channelName == null) return
         sinks.remove(channelName)
         Log.i(TAG, "removeEventSink: $channelName")
     }
-
     fun emit(channelName: String, payload: Any?) {
         sinks[channelName]?.success(payload)
             ?: Log.w(TAG, "emit: no active sink for $channelName")
