@@ -43,7 +43,7 @@ class BleManager private constructor() {
 
     //  Context
     private lateinit var weakActivity: WeakReference<Activity>
-    //  Scan，Connect，Disconnect，Send
+    //  Scan, Connect, Disconnect, Send
     private lateinit var bluetoothManager: BluetoothManager
     private val bluetoothAdapter: BluetoothAdapter
         get() = bluetoothManager.adapter
@@ -52,39 +52,36 @@ class BleManager private constructor() {
     private var connectedDevice: BlePairDevice? = null
 
     /// Scan Config
-    //  - Setting: Low latency
     private val scanSettings = ScanSettings
         .Builder()
         .setScanMode(ScanSettings.SCAN_MODE_LOW_LATENCY)
         .build()
-    //  -
+
     private val scanCallback: ScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
             val device = result?.device
-            //  eg. G1_45_L_92333
             if (device == null ||
                 device.name.isNullOrEmpty() ||
                 !device.name.contains("G\\d+".toRegex()) ||
                 device.name.split("_").size != 4 ||
-                bleDevices.firstOrNull { it.address == device.address } != null) {
+                bleDevices.firstOrNull { it.address == device.address } != null
+            ) {
                 return
             }
             Log.i(LOG_TAG, "ScanCallback - Result: CallbackType = $callbackType, DeviceName = ${device.name}")
-            //  1. Get same channel num device,and make pair
             val channelNum = device.name.split("_")[1]
             bleDevices.add(BleDevice.createByDevice(device.name, device.address, channelNum))
             val pairDevices = bleDevices.filter { it.name.contains("_$channelNum" + "_") }
-            if (pairDevices.size <= 1) {
-                return
-            }
+            if (pairDevices.size <= 1) return
             val leftDevice = pairDevices.firstOrNull { it.isLeft() }
             val rightDevice = pairDevices.firstOrNull { it.isRight() }
-            if (leftDevice == null || rightDevice == null) {
-                return
-            }
-            BleChannelHelper.bleMC.flutterFoundPairedGlasses(BlePairDevice(leftDevice, rightDevice))
+            if (leftDevice == null || rightDevice == null) return
+
+            // ✅ Call Flutter via method channel
+            bleMC.invokeMethod("flutterFoundPairedGlasses", BlePairDevice(leftDevice, rightDevice))
         }
+
         override fun onScanFailed(errorCode: Int) {
             super.onScanFailed(errorCode)
             Log.e(LOG_TAG, "ScanCallback - Failed: ErrorCode = $errorCode")
@@ -92,16 +89,10 @@ class BleManager private constructor() {
     }
 
     /// UI Thread
-    private val  mainScope: CoroutineScope = MainScope()
+    private val mainScope: CoroutineScope = MainScope()
 
-    //*================= Method - Public =================*//
+    //*================= Public Methods =================*//
 
-    /**
-     * Init bluetooth manager and get bluetooth adapter
-     *
-     * @param context
-     *
-     */
     fun initBluetooth(context: Activity) {
         weakActivity = WeakReference(context)
         bluetoothManager = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -112,9 +103,6 @@ class BleManager private constructor() {
         Log.v(LOG_TAG, "BleManager init success")
     }
 
-    /**
-     *
-     */
     fun startScan(result: MethodChannel.Result) {
         if (!checkBluetoothStatus()) {
             result.error("Permission", "", null)
@@ -126,9 +114,6 @@ class BleManager private constructor() {
         result.success("Scanning for devices...")
     }
 
-    /**
-     *
-     */
     fun stopScan(result: MethodChannel.Result? = null) {
         if (!checkBluetoothStatus()) {
             result?.error("Permission", "", null)
@@ -139,9 +124,6 @@ class BleManager private constructor() {
         result?.success("Scan stopped")
     }
 
-    /**
-     *
-     */
     fun connectToGlass(deviceChannel: String, result: MethodChannel.Result) {
         Log.i(LOG_TAG, "connectToGlass: deviceChannel = $deviceChannel")
         val leftPairChannel = "_$deviceChannel" + "_L_"
@@ -166,17 +148,11 @@ class BleManager private constructor() {
         result.success("Connecting to G1_$deviceChannel ...")
     }
 
-    /**
-     *
-     */
     fun disconnectFromGlasses(result: MethodChannel.Result) {
-        Log.i(LOG_TAG, "connectToGlass: G1_${connectedDevice?.deviceName()}")
+        Log.i(LOG_TAG, "disconnectFromGlasses: G1_${connectedDevice?.deviceName()}")
         result.success("Disconnected all devices.")
     }
 
-    /**
-     *
-     */
     fun senData(params: Map<*, *>?) {
         val data = params?.get("data") as ByteArray? ?: byteArrayOf()
         if (data.isEmpty()) {
@@ -191,45 +167,30 @@ class BleManager private constructor() {
         }
     }
 
-    //*================= Method - Private =================*//
+    //*================= Private Methods =================*//
 
-    /**
-     *  Check if Bluetooth is turned on and permission status
-     */
     private fun checkBluetoothStatus(): Boolean {
-        if (weakActivity.get() == null) {
-            return false
-        }
+        if (weakActivity.get() == null) return false
         if (!bluetoothAdapter.isEnabled) {
             Toast.makeText(weakActivity.get()!!, "Bluetooth is turned off, please turn it on first!", Toast.LENGTH_SHORT).show()
             return false
         }
-        if (!BlePermissionUtil.checkBluetoothPermission(weakActivity.get()!!)) {
-            return false
-        }
+        if (!BlePermissionUtil.checkBluetoothPermission(weakActivity.get()!!)) return false
         return true
     }
 
-    /**
-     *
-     */
     private fun bleGattCallBack(): BluetoothGattCallback = object : BluetoothGattCallback() {
         override fun onConnectionStateChange(gatt: BluetoothGatt?, status: Int, newState: Int) {
             super.onConnectionStateChange(gatt, status, newState)
             if (newState == BluetoothGatt.STATE_CONNECTED) {
                 gatt?.discoverServices()
-            } else if (newState == BluetoothGatt.STATE_DISCONNECTED) {
             }
         }
 
         override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
             super.onServicesDiscovered(gatt, status)
-            Log.e(
-                LOG_TAG,
-                "BluetoothGattCallback - onServicesDiscovered: $gatt, status = $status"
-            )
+            Log.e(LOG_TAG, "BluetoothGattCallback - onServicesDiscovered: $gatt, status = $status")
             connectedDevice?.let {
-                //  1. Save gatt
                 var isLeft = false
                 var isRight = false
                 if (gatt?.device?.address == it.leftDevice?.address) {
@@ -240,29 +201,20 @@ class BleManager private constructor() {
                     isRight = true
                 }
                 if (status == BluetoothGatt.GATT_SUCCESS) {
-                    //  1. Check if it is already connected, and if it is, do not repeat the process
                     if ((isLeft && it.leftDevice?.isConnect == true) ||
-                        (isRight && it.rightDevice?.isConnect == true)) {
-                        return
-                    }
-                    //  2. Get Bluetooth read-write services
+                        (isRight && it.rightDevice?.isConnect == true)) return
+
                     val server = gatt?.getService(UUID.fromString(SERVICE_UUID))
-                    //  3. Check if gatt can read character
-                    val readCharacteristic =
-                        server?.getCharacteristic(UUID.fromString(READ_CHARACTERISTIC_UUID))
+                    val readCharacteristic = server?.getCharacteristic(UUID.fromString(READ_CHARACTERISTIC_UUID))
                     if (readCharacteristic == null) {
-                        Log.e(
-                            LOG_TAG,
-                            "BluetoothGattCallback - onServicesDiscovered: $gatt, Not found readCharacteristicUuid from $server"
-                        )
+                        Log.e(LOG_TAG, "Not found readCharacteristicUuid from $server")
                         return
                     }
                     gatt.setCharacteristicNotification(readCharacteristic, true)
-                    //  4. Check if gatt can write character
-                    val writeCharacteristic =
-                        server.getCharacteristic(UUID.fromString(WRITE_CHARACTERISTIC_UUID))
+
+                    val writeCharacteristic = server.getCharacteristic(UUID.fromString(WRITE_CHARACTERISTIC_UUID))
                     if (writeCharacteristic == null) {
-                        Log.e(LOG_TAG, "BluetoothGattCallback - onServicesDiscovered: $gatt, Not found readCharacteristicUuid from $server")
+                        Log.e(LOG_TAG, "Not found writeCharacteristicUuid from $server")
                         return
                     }
                     if (isLeft) {
@@ -270,27 +222,27 @@ class BleManager private constructor() {
                     } else {
                         connectedDevice?.rightDevice?.writeCharacteristic = writeCharacteristic
                     }
-                    //  5.
-                    val descriptor =
-                        readCharacteristic.getDescriptor(UUID.fromString("00002902-0000-1000-8000-00805f9b34fb"))
-                    Log.d(LOG_TAG, "BluetoothGattCallback - onServicesDiscovered: $gatt, get descriptor :${descriptor}")
+
+                    val descriptor = readCharacteristic.getDescriptor(
+                        UUID.fromString("00002902-0000-1000-8000-00805f9b34fb")
+                    )
                     descriptor?.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE)
-                    val isWrite = gatt.writeDescriptor(descriptor)
-                    Log.d(LOG_TAG, "BluetoothGattCallback - onServicesDiscovered: descriptor isWrite :${isWrite}")
-                    //  6.
-                    gatt.requestMtu(251)
-                    //  7.
-                    gatt.device?.createBond()
-                    //  8. Update connect status，and check is both connected
+                    gatt?.writeDescriptor(descriptor)
+
+                    gatt?.requestMtu(251)
+                    gatt?.device?.createBond()
+
                     if (isLeft) {
                         it.update(leftGatt = gatt, isLeftConnect = true)
                     } else if (isRight) {
                         it.update(rightGatt = gatt, isRightConnected = true)
                     }
+
                     requestData(byteArrayOf(0xf4.toByte(), 0x01.toByte()))
                     if (it.isBothConnected()) {
                         weakActivity.get()?.runOnUiThread {
-                            BleChannelHelper.bleMC.flutterGlassesConnected(it.toConnectedJson())
+                            // ✅ Send event to Flutter
+                            bleMC.invokeMethod("flutterGlassesConnected", it.toConnectedJson())
                         }
                     }
                 }
@@ -306,30 +258,23 @@ class BleManager private constructor() {
             mainScope.launch {
                 val isLeft = gatt.device.address == connectedDevice?.leftDevice?.address
                 val isRight = gatt.device.address == connectedDevice?.rightDevice?.address
-                if (!isLeft && !isRight) {
-                    return@launch
-                }
-                //  Mic data:
-                //  - each pack data length must be 202
-                //  - data index: 0 = cmd, 1 = pack serial number，2～201 = real mic data
+                if (!isLeft && !isRight) return@launch
+
                 val isMicData = value[0] == 0xF1.toByte()
-                if(isMicData && value.size != 202) {
-                    return@launch
-                }
-                //  eg. LC3 to PCM
+                if (isMicData && value.size != 202) return@launch
+
                 if (isMicData) {
                     val lc3 = value.copyOfRange(2, 202)
-                    val pcmData = Cpp.decodeLC3(lc3)!!//200
-
-                    // TODO 
-                    // to implement the pcmData for asr in AI answer
-                    Log.d(this::class.simpleName,"============Lc3 data = $lc3, Pcm = $pcmData")
+                    val pcmData = Cpp.decodeLC3(lc3)!!
+                    Log.d(this::class.simpleName, "============Lc3 data = $lc3, Pcm = $pcmData")
                 }
-                BleChannelHelper.bleReceive(mapOf(
-                    "lr" to if (isLeft)  "L" else "R",
+
+                // ✅ Send BLE event to Flutter
+                BleChannelHelper.emit("eventBleReceive", mapOf(
+                    "lr" to if (isLeft) "L" else "R",
                     "data" to value,
-                    "type" to if (isMicData)  "VoiceChunk" else "Receive",
-                 ))
+                    "type" to if (isMicData) "VoiceChunk" else "Receive"
+                ))
             }
         }
 
@@ -342,21 +287,12 @@ class BleManager private constructor() {
             super.onCharacteristicRead(gatt, characteristic, value, status)
             print("===========onCharacteristicRead: $value")
         }
-
     }
 
-    /**
-     *
-     */
     private fun requestData(data: ByteArray, sendLeft: Boolean = false, sendRight: Boolean = false) {
         val isBothSend = !sendLeft && !sendRight
-        Log.d(LOG_TAG, "Send ${ if (isBothSend) "both" else if (sendLeft)  "left" else "right"} data = ${ByteUtil.byteToHexArray(data)}")
-        if (sendLeft || isBothSend) {
-            connectedDevice?.leftDevice?.sendData(data)
-        }
-        if (sendRight || isBothSend) {
-            connectedDevice?.rightDevice?.sendData(data)
-        }
+        Log.d(LOG_TAG, "Send ${if (isBothSend) "both" else if (sendLeft) "left" else "right"} data = ${ByteUtil.byteToHexArray(data)}")
+        if (sendLeft || isBothSend) connectedDevice?.leftDevice?.sendData(data)
+        if (sendRight || isBothSend) connectedDevice?.rightDevice?.sendData(data)
     }
-
 }
