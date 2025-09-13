@@ -1,20 +1,27 @@
-// android/build.gradle (PROJECT level)
+buildscript {
+    repositories {
+        google()
+        mavenCentral()
+        maven { url 'https://jitpack.io' }
+    }
+    dependencies {
+        classpath 'com.android.tools.build:gradle:8.2.2'
+        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10'
+    }
+}
 
 allprojects {
     repositories {
         google()
         mavenCentral()
-        // Keep only if you truly need it (some third-party libs):
         maven { url 'https://jitpack.io' }
     }
 }
 
 rootProject.buildDir = "../build"
-
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
-
 subprojects {
     project.evaluationDependsOn(":app")
 }
