@@ -1,10 +1,11 @@
-// android/build.gradle  (top-level)
+// android/build.gradle (PROJECT level)
 
 allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' } // if you use it anywhere
+        // Keep only if you truly need it (some third-party libs):
+        maven { url 'https://jitpack.io' }
     }
 }
 
