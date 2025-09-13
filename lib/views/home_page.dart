@@ -5,102 +5,95 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-import '../ble_manager.dart';
-import '../services/evenai.dart';
-import 'even_list_page.dart';
-import 'features_page.dart';
-import 'api_settings_page.dart';
+// your app files
+import 'package:demo_ai_even/ble_manager.dart';
+import 'package:demo_ai_even/services/evenai.dart';
+import 'package:demo_ai_even/views/even_list_page.dart';
+import 'package:demo_ai_even/views/features_page.dart';
+import 'package:demo_ai_even/views/api_settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
-
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  Timer? _scanTimer;
-  bool _isScanning = false;
+  Timer? scanTimer;
+  bool isScanning = false;
 
   @override
   void initState() {
     super.initState();
-    // Keep UI synced with Bluetooth events
+    BleManager.get().setMethodCallHandler();
+    BleManager.get().startListening();
     BleManager.get().onStatusChanged = _refreshPage;
   }
 
   void _refreshPage() => setState(() {});
 
   Future<void> _startScan() async {
-    setState(() => _isScanning = true);
+    setState(() => isScanning = true);
     await BleManager.get().startScan();
-
-    _scanTimer?.cancel();
-    _scanTimer = Timer(15.seconds, () {
-      _stopScan();
-    });
+    scanTimer?.cancel();
+    scanTimer = Timer(15.seconds, _stopScan); // from get
   }
 
   Future<void> _stopScan() async {
-    if (_isScanning) {
+    if (isScanning) {
       await BleManager.get().stopScan();
-      setState(() => _isScanning = false);
+      setState(() => isScanning = false);
     }
   }
 
-  Widget _buildPairedList() {
-    final pairs = BleManager.get().getPairedGlasses();
-
-    if (pairs.isEmpty) {
-      return const Center(
-        child: Text("No paired glasses found yet"),
+  Widget blePairedList() => Expanded(
+        child: ListView.separated(
+          separatorBuilder: (context, index) => const SizedBox(height: 5),
+          itemCount: BleManager.get().getPairedGlasses().length,
+          itemBuilder: (context, index) {
+            final glasses = BleManager.get().getPairedGlasses()[index];
+            return GestureDetector(
+              onTap: () async {
+                final channelNumber = glasses['channelNumber']!;
+                await BleManager.get().connectToGlasses("Pair_$channelNumber");
+                _refreshPage();
+              },
+              child: Container(
+                height: 72,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(5),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('Pair: ${glasses['channelNumber']}'),
+                        Text(
+                          'Left: ${glasses['leftDeviceName']} \nRight: ${glasses['rightDeviceName']}',
+                        ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
+        ),
       );
-    }
-
-    return Expanded(
-      child: ListView.separated(
-        separatorBuilder: (_, __) => const SizedBox(height: 5),
-        itemCount: pairs.length,
-        itemBuilder: (context, index) {
-          final glasses = pairs[index];
-          return GestureDetector(
-            onTap: () async {
-              final channelNumber = glasses['channelNumber'] ?? "0";
-              await BleManager.get().connectToGlasses("Pair_$channelNumber");
-              _refreshPage();
-            },
-            child: Container(
-              height: 72,
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(5),
-              ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text('Pair: ${glasses['channelNumber']}'),
-                      Text(
-                        'Left: ${glasses['leftDeviceName']} \nRight: ${glasses['rightDeviceName']}',
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-          );
-        },
-      ),
-    );
-  }
 
   @override
   Widget build(BuildContext context) {
-    final status = BleManager.get().getConnectionStatus();
+    // NOTE: `.isConnected` in your project is a ValueNotifier<bool> in the logs.
+    // Always read it as `.isConnected.value` when you need a boolean.
+    final bool connected =
+        (BleManager.get().isConnected is bool)
+            ? (BleManager.get().isConnected as bool)
+            : (BleManager.get().isConnected as ValueNotifier<bool>).value;
 
     return Scaffold(
       appBar: AppBar(
@@ -119,30 +112,27 @@ class _HomePageState extends State<HomePage> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (_) => const FeaturesPage()),
+                MaterialPageRoute(builder: (context) => const FeaturesPage()),
               );
             },
             splashColor: Colors.transparent,
             highlightColor: Colors.transparent,
             child: const Padding(
-              padding: EdgeInsets.all(12),
+              padding: EdgeInsets.only(left: 16, top: 12, bottom: 14, right: 16),
               child: Icon(Icons.menu),
             ),
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 12, 16, 44),
+        padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 44),
         child: Column(
+          mainAxisAlignment: MainAxisAlignment.start,
           children: [
-            // Connection status tile
             GestureDetector(
               onTap: () async {
-                if (status == 'Not connected') {
+                if (!connected) {
                   _startScan();
-                } else {
-                  await BleManager.get().disconnectFromGlasses();
-                  _refreshPage();
                 }
               },
               child: Container(
@@ -153,18 +143,14 @@ class _HomePageState extends State<HomePage> {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  status,
+                  BleManager.get().getConnectionStatus(),
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-
-            // Show scan/paired list if not connected
-            if (status == 'Not connected') _buildPairedList(),
-
-            // Show EvenAI stream when connected
-            if (BleManager.get().isConnected)
+            if (!connected) blePairedList(),
+            if (connected)
               Expanded(
                 child: GestureDetector(
                   onTap: () async {
@@ -195,7 +181,7 @@ class _HomePageState extends State<HomePage> {
                                   snapshot.data ?? "Loading...",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: BleManager.get().isConnected
+                                    color: connected
                                         ? Colors.black
                                         : Colors.grey.withOpacity(0.5),
                                   ),
@@ -215,8 +201,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    _scanTimer?.cancel();
-    _isScanning = false;
+    scanTimer?.cancel();
+    isScanning = false;
     BleManager.get().onStatusChanged = null;
     super.dispose();
   }
