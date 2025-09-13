@@ -1,6 +1,4 @@
 // lib/views/home_page.dart
-// ignore_for_file: library_private_types_in_public_api
-
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -36,7 +34,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => isScanning = true);
     await BleManager.get().startScan();
     scanTimer?.cancel();
-    scanTimer = Timer(15.seconds, _stopScan); // from get
+    scanTimer = Timer(const Duration(seconds: 15), _stopScan);
   }
 
   Future<void> _stopScan() async {
@@ -88,12 +86,7 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    // NOTE: `.isConnected` in your project is a ValueNotifier<bool> in the logs.
-    // Always read it as `.isConnected.value` when you need a boolean.
-    final bool connected =
-        (BleManager.get().isConnected is bool)
-            ? (BleManager.get().isConnected as bool)
-            : (BleManager.get().isConnected as ValueNotifier<bool>).value;
+    final bool connected = BleManager.get().isConnected;
 
     return Scaffold(
       appBar: AppBar(
