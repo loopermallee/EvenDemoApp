@@ -1,19 +1,19 @@
-// android/build.gradle (top-level)
+// android/build.gradle  (top-level)
+
 allprojects {
     repositories {
         google()
         mavenCentral()
-        // Only keep JitPack if you truly need it
-        maven { url 'https://jitpack.io' }
+        maven { url 'https://jitpack.io' } // if you use it anywhere
     }
 }
 
 rootProject.buildDir = "../build"
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
 
-// This line helps the IDE/Gradle know app must be evaluated first
 subprojects {
     project.evaluationDependsOn(":app")
 }
