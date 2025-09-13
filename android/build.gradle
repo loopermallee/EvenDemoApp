@@ -1,26 +1,21 @@
-// Top-level Gradle file for the Android (Flutter) project.
-
+// android/build.gradle (top-level)
 allprojects {
     repositories {
-        // Put Maven Central first for CI reliability
-        mavenCentral()
         google()
+        mavenCentral()
+        // Only keep JitPack if you truly need it
         maven { url 'https://jitpack.io' }
     }
 }
 
 rootProject.buildDir = "../build"
-
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-    project.evaluationDependsOn(":app")
+}
 
-    // Stabilize dependency resolution on CI (avoids error_prone_annotations 404s)
-    configurations.all {
-        resolutionStrategy {
-            force 'com.google.errorprone:error_prone_annotations:2.18.0'
-        }
-    }
+// This line helps the IDE/Gradle know app must be evaluated first
+subprojects {
+    project.evaluationDependsOn(":app")
 }
 
 tasks.register("clean", Delete) {
