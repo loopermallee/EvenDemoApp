@@ -1,423 +1,118 @@
+// lib/ble_manager.dart
 import 'dart:async';
-import 'dart:typed_data';
-import 'package:demo_ai_even/app.dart';
-import 'package:demo_ai_even/services/ble.dart';
-import 'package:demo_ai_even/services/evenai.dart';
-import 'package:demo_ai_even/services/proto.dart';
 import 'package:flutter/services.dart';
 
-typedef SendResultParse = bool Function(Uint8List value);
-
 class BleManager {
-  Function()? onStatusChanged;
-  BleManager._();
+  // ===== Singleton =====
+  static final BleManager _instance = BleManager._internal();
+  BleManager._internal();
+  static BleManager get() => _instance;
 
-  static BleManager? _instance;
-  static BleManager get() {
-    if (_instance == null) {
-      _instance ??= BleManager._();
-      _instance!._init();
-    }
-    return _instance!;
-  }
+  // ===== Channels (match Kotlin) =====
+  static const _methodChannel = MethodChannel("method.bluetooth");
+  static const _eventChannel = EventChannel("eventBleReceive");
 
-  // ===== Channels =====
-  static const methodSend = "send";
-  static const _eventBleReceive = "eventBleReceive";
-  static const _eventSpeechRecognize = "eventSpeechRecognize"; // <-- from Android BleChannelHelper.kt
-  static const _channel = MethodChannel('method.bluetooth');
-
-  final eventBleReceive = const EventChannel(_eventBleReceive)
-      .receiveBroadcastStream(_eventBleReceive)
-      .map((ret) => BleReceive.fromMap(ret));
-
-  final speechStream = const EventChannel(_eventSpeechRecognize)
-      .receiveBroadcastStream(_eventSpeechRecognize);
-
-  StreamSubscription? _bleReceiveSub;
-  StreamSubscription? _speechSub;
-
-  Timer? beatHeartTimer;
-
-  final List<Map<String, String>> pairedGlasses = [];
+  // ===== State =====
   bool isConnected = false;
-  String connectionStatus = 'Not connected';
+  String _status = "Not connected";
 
-  void _init() {}
+  final List<Map<String, String>> _pairedGlasses = [];
+
+  // Callbacks
+  Function()? onStatusChanged;
+  Function(Map<String, dynamic>)? onDataReceived;
+
+  StreamSubscription? _eventSub;
+
+  // ===== Public API =====
 
   void startListening() {
-    // Avoid double subscriptions
-    _bleReceiveSub?.cancel();
-    _speechSub?.cancel();
-
-    _bleReceiveSub = eventBleReceive.listen(_handleReceivedData);
-
-    _speechSub = speechStream.listen((obj) {
-      try {
-        if (obj == null) return;
-        final map = (obj is Map)
-            ? Map<String, dynamic>.from(obj as Map)
-            : <String, dynamic>{};
-        final script = (map['script'] as String?)?.trim() ?? '';
-        if (script.isNotEmpty) {
-          EvenAI.setTranscript(script);
-          // If your native layer does NOT send the "record over" event (24),
-          // you can uncomment the next line to auto-complete:
-          // EvenAI.get().recordOverByOS();
+    _eventSub ??= _eventChannel.receiveBroadcastStream().listen((event) {
+      if (event is Map) {
+        final map = Map<String, dynamic>.from(event);
+        if (onDataReceived != null) {
+          onDataReceived!(map);
         }
-      } catch (e) {
-        print('speechStream parse error: $e | obj=$obj');
       }
-    }, onError: (e, st) {
-      print('speechStream error: $e');
+    }, onError: (error) {
+      print("BLE event error: $error");
+    });
+  }
+
+  void setMethodCallHandler() {
+    _methodChannel.setMethodCallHandler((call) async {
+      switch (call.method) {
+        case "flutterFoundPairedGlasses":
+          final args = Map<String, dynamic>.from(call.arguments);
+          _pairedGlasses.add({
+            "channelNumber": args["channelNumber"].toString(),
+            "leftDeviceName": args["leftDeviceName"] ?? "",
+            "rightDeviceName": args["rightDeviceName"] ?? "",
+          });
+          _status = "Paired found";
+          _notifyStatusChanged();
+          break;
+
+        case "flutterGlassesConnected":
+          final args = Map<String, dynamic>.from(call.arguments);
+          _status = "Connected to G1_${args["channelNumber"]}";
+          isConnected = true;
+          _notifyStatusChanged();
+          break;
+
+        default:
+          print("Unhandled method from native: ${call.method}");
+      }
     });
   }
 
   Future<void> startScan() async {
     try {
-      await _channel.invokeMethod('startScan');
+      await _methodChannel.invokeMethod("startScan");
+      _status = "Scanning...";
+      _notifyStatusChanged();
     } catch (e) {
-      print('Error starting scan: $e');
+      print("startScan error: $e");
     }
   }
 
   Future<void> stopScan() async {
     try {
-      await _channel.invokeMethod('stopScan');
+      await _methodChannel.invokeMethod("stopScan");
+      _status = "Not connected";
+      _notifyStatusChanged();
     } catch (e) {
-      print('Error stopping scan: $e');
+      print("stopScan error: $e");
     }
   }
 
-  Future<void> connectToGlasses(String deviceName) async {
+  Future<void> connectToGlasses(String pairId) async {
     try {
-      await _channel.invokeMethod('connectToGlasses', {'deviceName': deviceName});
-      connectionStatus = 'Connecting...';
+      await _methodChannel.invokeMethod("connectToGlasses", {"id": pairId});
+      _status = "Connecting...";
+      _notifyStatusChanged();
     } catch (e) {
-      print('Error connecting to device: $e');
+      print("connectToGlasses error: $e");
     }
   }
 
-  void setMethodCallHandler() {
-    _channel.setMethodCallHandler(_methodCallHandler);
-  }
-
-  Future<void> _methodCallHandler(MethodCall call) async {
-    switch (call.method) {
-      case 'glassesConnected':
-        _onGlassesConnected(call.arguments);
-        break;
-      case 'glassesConnecting':
-        _onGlassesConnecting();
-        break;
-      case 'glassesDisconnected':
-        _onGlassesDisconnected();
-        break;
-      case 'foundPairedGlasses':
-        _onPairedGlassesFound(Map<String, String>.from(call.arguments));
-        break;
-      case 'speechScript':
-        try {
-          final args = Map.from(call.arguments as Map);
-          final script = (args['script'] as String?)?.trim() ?? '';
-          if (script.isNotEmpty) {
-            EvenAI.setTranscript(script);
-            // Optionally auto-complete:
-            // EvenAI.get().recordOverByOS();
-          }
-        } catch (e) {
-          print('speechScript handler error: $e');
-        }
-        break;
-      default:
-        print('Unknown method: ${call.method}');
-    }
-  }
-
-  void _onGlassesConnected(dynamic arguments) {
-    print("_onGlassesConnected----arguments----$arguments------");
-    connectionStatus = 'Connected: \n${arguments['leftDeviceName']} \n${arguments['rightDeviceName']}';
-    isConnected = true;
-    onStatusChanged?.call();
-    startSendBeatHeart();
-  }
-
-  int tryTime = 0;
-  void startSendBeatHeart() async {
-    beatHeartTimer?.cancel();
-    beatHeartTimer = null;
-
-    beatHeartTimer = Timer.periodic(const Duration(seconds: 8), (timer) async {
-      bool isSuccess = await Proto.sendHeartBeat();
-      if (!isSuccess && tryTime < 2) {
-        tryTime++;
-        await Proto.sendHeartBeat();
-      } else {
-        tryTime = 0;
-      }
-    });
-  }
-
-  void _onGlassesConnecting() {
-    connectionStatus = 'Connecting...';
-    onStatusChanged?.call();
-  }
-
-  void _onGlassesDisconnected() {
-    connectionStatus = 'Not connected';
-    isConnected = false;
-    onStatusChanged?.call();
-  }
-
-  void _onPairedGlassesFound(Map<String, String> deviceInfo) {
-    final String channelNumber = deviceInfo['channelNumber']!;
-    final isAlreadyPaired = pairedGlasses.any((glasses) => glasses['channelNumber'] == channelNumber);
-    if (!isAlreadyPaired) {
-      pairedGlasses.add(deviceInfo);
-    }
-    onStatusChanged?.call();
-  }
-
-  // 🔧 FIXED: Now processes audio chunks instead of ignoring them
-  void _handleReceivedData(BleReceive res) {
-    if (res.type == "VoiceChunk") {
-      _processAudioChunk(res.data, res.lr);
-      return;
-    }
-
-    String cmd = "${res.lr}${res.getCmd().toRadixString(16).padLeft(2, '0')}";
-    if (res.getCmd() != 0xf1) {
-      print("${DateTime.now()} BleManager receive cmd: $cmd, len: ${res.data.length}, data = ${res.data.hexString}");
-    }
-
-    if (res.data[0].toInt() == 0xF5) {
-      final notifyIndex = res.data[1].toInt();
-      switch (notifyIndex) {
-        case 0:
-          App.get.exitAll();
-          break;
-        case 1:
-          if (res.lr == 'L') {
-            EvenAI.get().lastPageByTouchpad();
-          } else {
-            EvenAI.get().nextPageByTouchpad();
-          }
-          break;
-        case 23:
-          EvenAI.get().toStartEvenAIByOS();
-          break;
-        case 24:
-          EvenAI.get().recordOverByOS();
-          break;
-        default:
-          print("Unknown Ble Event: $notifyIndex");
-      }
-      return;
-    }
-
-    _reqListen.remove(cmd)?.complete(res);
-    _reqTimeout.remove(cmd)?.cancel();
-    if (_nextReceive != null) {
-      _nextReceive?.complete(res);
-      _nextReceive = null;
-    }
-  }
-
-  // 🔧 NEW: Process audio chunks for STT
-  void _processAudioChunk(Uint8List audioData, String lr) {
+  Future<void> disconnect() async {
     try {
-      print("📡 Processing audio chunk: ${audioData.length} bytes from $lr");
-      
-      _channel.invokeMethod('processAudioChunk', {
-        'audioData': audioData,
-        'lr': lr,
-        'timestamp': DateTime.now().millisecondsSinceEpoch,
-      });
+      await _methodChannel.invokeMethod("disconnectFromGlasses");
+      _status = "Not connected";
+      isConnected = false;
+      _notifyStatusChanged();
     } catch (e) {
-      print('Error processing audio chunk: $e');
+      print("disconnect error: $e");
     }
   }
 
-  String getConnectionStatus() => connectionStatus;
-  List<Map<String, String>> getPairedGlasses() => pairedGlasses;
+  // ===== Getters =====
+  String getConnectionStatus() => _status;
+  List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
 
-  static final _reqListen = <String, Completer<BleReceive>>{};
-  static final _reqTimeout = <String, Timer>{};
-  static Completer<BleReceive>? _nextReceive;
-
-  static _checkTimeout(String cmd, int timeoutMs, Uint8List data, String lr) {
-    _reqTimeout.remove(cmd);
-    var cb = _reqListen.remove(cmd);
-    print('${DateTime.now()} _checkTimeout-----timeoutMs----$timeoutMs-----cb----$cb-----');
-    if (cb != null) {
-      var res = BleReceive();
-      res.isTimeout = true;
-      print("send Timeout $cmd of $timeoutMs");
-      cb.complete(res);
-    }
-    _reqTimeout[cmd]?.cancel();
-    _reqTimeout.remove(cmd);
+  // ===== Internals =====
+  void _notifyStatusChanged() {
+    if (onStatusChanged != null) onStatusChanged!();
   }
-
-  static Future<T?> invokeMethod<T>(String method, [dynamic params]) {
-    return _channel.invokeMethod(method, params);
-  }
-
-  static Future<BleReceive> requestRetry(
-    Uint8List data, {
-    String? lr,
-    Map<String, dynamic>? other,
-    int timeoutMs = 200,
-    bool useNext = false,
-    int retry = 3,
-  }) async {
-    BleReceive ret;
-    for (var i = 0; i <= retry; i++) {
-      ret = await request(data, lr: lr, other: other, timeoutMs: timeoutMs, useNext: useNext);
-      if (!ret.isTimeout) return ret;
-      if (!BleManager.isBothConnected()) break;
-    }
-    ret = BleReceive();
-    ret.isTimeout = true;
-    print("requestRetry $lr timeout of $timeoutMs");
-    return ret;
-  }
-
-  static Future<bool> sendBoth(
-    data, {
-    int timeoutMs = 250,
-    SendResultParse? isSuccess,
-    int? retry,
-  }) async {
-    var ret = await BleManager.requestRetry(data, lr: "L", timeoutMs: timeoutMs, retry: retry ?? 0);
-    if (ret.isTimeout) {
-      print("sendBoth L timeout");
-      return false;
-    } else if (isSuccess != null) {
-      final success = isSuccess.call(ret.data);
-      if (!success) return false;
-      var retR = await BleManager.requestRetry(data, lr: "R", timeoutMs: timeoutMs, retry: retry ?? 0);
-      if (retR.isTimeout) return false;
-      return isSuccess.call(retR.data);
-    } else if (ret.data[1].toInt() == 0xc9) {
-      var ret2 = await BleManager.requestRetry(data, lr: "R", timeoutMs: timeoutMs, retry: retry ?? 0);
-      if (ret2.isTimeout) return false;
-    }
-    return true;
-  }
-
-  static Future sendData(Uint8List data, {String? lr, Map<String, dynamic>? other, int secondDelay = 100}) async {
-    var params = <String, dynamic>{'data': data};
-    if (other != null) params.addAll(other);
-
-    dynamic ret;
-    if (lr != null) {
-      params["lr"] = lr;
-      ret = await BleManager.invokeMethod(methodSend, params);
-      return ret;
-    } else {
-      params["lr"] = "L";
-      var retL = await _channel.invokeMethod(methodSend, params);
-      if (retL == true) {
-        params["lr"] = "R";
-        ret = await BleManager.invokeMethod(methodSend, params);
-        return ret;
-      }
-      if (secondDelay > 0) {
-        await Future.delayed(Duration(milliseconds: secondDelay));
-      }
-      params["lr"] = "R";
-      ret = await BleManager.invokeMethod(methodSend, params);
-      return ret;
-    }
-  }
-
-  static Future<BleReceive> request(Uint8List data, {String? lr, Map<String, dynamic>? other, int timeoutMs = 1000, bool useNext = false}) async {
-    var lr0 = lr ?? Proto.lR();
-    var completer = Completer<BleReceive>();
-    String cmd = "$lr0${data[0].toRadixString(16).padLeft(2, '0')}";
-
-    if (useNext) {
-      _nextReceive = completer;
-    } else {
-      if (_reqListen.containsKey(cmd)) {
-        var res = BleReceive();
-        res.isTimeout = true;
-        _reqListen[cmd]?.complete(res);
-        print("already exist key: $cmd");
-        _reqTimeout[cmd]?.cancel();
-      }
-      _reqListen[cmd] = completer;
-    }
-    print("request key: $cmd, ");
-
-    if (timeoutMs > 0) {
-      _reqTimeout[cmd] = Timer(Duration(milliseconds: timeoutMs), () {
-        _checkTimeout(cmd, timeoutMs, data, lr0);
-      });
-    }
-
-    completer.future.then((result) {
-      _reqTimeout.remove(cmd)?.cancel();
-    });
-
-    await sendData(data, lr: lr, other: other).timeout(
-      const Duration(seconds: 2),
-      onTimeout: () {
-        _reqTimeout.remove(cmd)?.cancel();
-        var ret = BleReceive();
-        ret.isTimeout = true;
-        _reqListen.remove(cmd)?.complete(ret);
-      },
-    );
-
-    return completer.future;
-  }
-
-  static bool isBothConnected() {
-    return true;
-  }
-
-  static Future<bool> requestList(
-    List<Uint8List> sendList, {
-    String? lr,
-    int? timeoutMs,
-  }) async {
-    print("requestList---sendList---${sendList.first}----lr---$lr----timeoutMs----$timeoutMs-");
-
-    if (lr != null) {
-      return await _requestList(sendList, lr, timeoutMs: timeoutMs);
-    } else {
-      var rets = await Future.wait([
-        _requestList(sendList, "L", keepLast: true, timeoutMs: timeoutMs),
-        _requestList(sendList, "R", keepLast: true, timeoutMs: timeoutMs),
-      ]);
-      if (rets.length == 2 && rets[0] && rets[1]) {
-        var lastPack = sendList[sendList.length - 1];
-        return await sendBoth(lastPack, timeoutMs: timeoutMs ?? 250);
-      } else {
-        print("error request lr leg");
-      }
-    }
-    return false;
-  }
-
-  static Future<bool> _requestList(List sendList, String lr, {bool keepLast = false, int? timeoutMs}) async {
-    int len = sendList.length;
-    if (keepLast) len = sendList.length - 1;
-    for (var i = 0; i < len; i++) {
-      var pack = sendList[i];
-      var resp = await request(pack, lr: lr, timeoutMs: timeoutMs ?? 350);
-      if (resp.isTimeout) {
-        return false;
-      } else if (resp.data[1].toInt() != 0xc9 && resp.data[1].toInt() != 0xcB) {
-        return false;
-      }
-    }
-    return true;
-  }
-}
-
-extension Uint8ListEx on Uint8List {
-  String get hexString => map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
 }
