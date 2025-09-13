@@ -1,19 +1,28 @@
-buildscript {
-    repositories {
-        mavenCentral()
-        google()
-        maven { url 'https://jitpack.io' }
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'
-        classpath 'org.jetbrains.kotlin:kotlin-gradle-plugin:1.9.10'
-    }
-}
+// Top-level Gradle file for the Android (Flutter) project.
 
 allprojects {
     repositories {
+        // Put Maven Central first for CI reliability
         mavenCentral()
         google()
         maven { url 'https://jitpack.io' }
     }
+}
+
+rootProject.buildDir = "../build"
+
+subprojects {
+    project.buildDir = "${rootProject.buildDir}/${project.name}"
+    project.evaluationDependsOn(":app")
+
+    // Stabilize dependency resolution on CI (avoids error_prone_annotations 404s)
+    configurations.all {
+        resolutionStrategy {
+            force 'com.google.errorprone:error_prone_annotations:2.18.0'
+        }
+    }
+}
+
+tasks.register("clean", Delete) {
+    delete rootProject.buildDir
 }
