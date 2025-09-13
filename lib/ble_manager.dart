@@ -4,8 +4,6 @@ import 'dart:typed_data';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 
-typedef StatusChangedCallback = void Function();
-
 class BleManager {
   // Singleton
   static final BleManager _instance = BleManager._internal();
@@ -24,13 +22,10 @@ class BleManager {
 
   // Listeners
   StreamSubscription? _eventSubscription;
-  StatusChangedCallback? onStatusChanged;
 
   /// Call once at startup (before runApp)
   void setMethodCallHandler() {
     _methodChannel.setMethodCallHandler((call) async {
-      // Debug log so CI shows what arrived
-      // ignore: avoid_print
       print("[BleManager] Method: ${call.method}, args=${call.arguments}");
 
       switch (call.method) {
@@ -45,7 +40,12 @@ class BleManager {
 
         case "flutterGlassesConnected":
           isConnected.value = true;
-          _connectionStatus = "Connected to ${call.arguments}";
+          if (call.arguments is Map) {
+            final args = Map<String, dynamic>.from(call.arguments);
+            _connectionStatus = "Connected to ${args["deviceName"] ?? "Glasses"}";
+          } else {
+            _connectionStatus = "Connected";
+          }
           break;
 
         case "flutterGlassesDisconnected":
@@ -54,11 +54,8 @@ class BleManager {
           break;
 
         default:
-          // ignore: avoid_print
           print("[BleManager] ⚠️ Unhandled method: ${call.method}");
       }
-
-      onStatusChanged?.call();
     });
   }
 
@@ -66,11 +63,8 @@ class BleManager {
   void startListening() {
     _eventSubscription ??=
         _eventChannel.receiveBroadcastStream().listen((event) {
-      // event example: {"lr":"L","data":[...],"type":"VoiceChunk"}
-      // ignore: avoid_print
       print("[BleManager] Event: $event");
     }, onError: (err) {
-      // ignore: avoid_print
       print("[BleManager] EventChannel error: $err");
     });
   }
@@ -84,9 +78,10 @@ class BleManager {
 
   Future<void> startScan() async {
     try {
+      _pairedGlasses.clear(); // ✅ reset list each scan
       await _methodChannel.invokeMethod("startScan");
+      print("[BleManager] startScan invoked");
     } catch (e) {
-      // ignore: avoid_print
       print("[BleManager] startScan error: $e");
     }
   }
@@ -94,8 +89,8 @@ class BleManager {
   Future<void> stopScan() async {
     try {
       await _methodChannel.invokeMethod("stopScan");
+      print("[BleManager] stopScan invoked");
     } catch (e) {
-      // ignore: avoid_print
       print("[BleManager] stopScan error: $e");
     }
   }
@@ -105,8 +100,8 @@ class BleManager {
       await _methodChannel.invokeMethod("connectToGlass", {
         "deviceChannel": channel,
       });
+      print("[BleManager] connectToGlasses($channel) invoked");
     } catch (e) {
-      // ignore: avoid_print
       print("[BleManager] connectToGlasses error: $e");
     }
   }
@@ -116,9 +111,8 @@ class BleManager {
       await _methodChannel.invokeMethod("disconnectFromGlasses");
       isConnected.value = false;
       _connectionStatus = "Not connected";
-      onStatusChanged?.call();
+      print("[BleManager] disconnectFromGlasses invoked");
     } catch (e) {
-      // ignore: avoid_print
       print("[BleManager] disconnectFromGlasses error: $e");
     }
   }
@@ -130,15 +124,14 @@ class BleManager {
         "data": data,
         "lr": lr,
       });
-      // ignore: avoid_print
       print("[BleManager] sendData ok: len=${data.length}, lr=$lr");
     } catch (e) {
-      // ignore: avoid_print
       print("[BleManager] sendData error: $e");
     }
   }
 
   // ===== Helpers used by UI =====
   String getConnectionStatus() => _connectionStatus;
-  List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
+  List<Map<String, String>> getPairedGlasses() =>
+      List.unmodifiable(_pairedGlasses);
 }
