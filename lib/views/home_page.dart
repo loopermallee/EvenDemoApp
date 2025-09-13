@@ -1,4 +1,6 @@
 // lib/views/home_page.dart
+// ignore_for_file: library_private_types_in_public_api
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -11,83 +13,94 @@ import 'api_settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
+
   @override
   _HomePageState createState() => _HomePageState();
 }
 
 class _HomePageState extends State<HomePage> {
-  Timer? scanTimer;
-  bool isScanning = false;
+  Timer? _scanTimer;
+  bool _isScanning = false;
 
   @override
   void initState() {
     super.initState();
-    BleManager.get().setMethodCallHandler();
-    BleManager.get().startListening();
+    // Keep UI synced with Bluetooth events
     BleManager.get().onStatusChanged = _refreshPage;
   }
 
   void _refreshPage() => setState(() {});
 
   Future<void> _startScan() async {
-    setState(() => isScanning = true);
+    setState(() => _isScanning = true);
     await BleManager.get().startScan();
-    scanTimer?.cancel();
-    scanTimer = Timer(15.seconds, () {
+
+    _scanTimer?.cancel();
+    _scanTimer = Timer(15.seconds, () {
       _stopScan();
     });
   }
 
   Future<void> _stopScan() async {
-    if (isScanning) {
+    if (_isScanning) {
       await BleManager.get().stopScan();
-      setState(() => isScanning = false);
+      setState(() => _isScanning = false);
     }
   }
 
-  Widget blePairedList() => Expanded(
-        child: ListView.separated(
-          separatorBuilder: (context, index) => const SizedBox(height: 5),
-          itemCount: BleManager.get().getPairedGlasses().length,
-          itemBuilder: (context, index) {
-            final glasses = BleManager.get().getPairedGlasses()[index];
-            return GestureDetector(
-              onTap: () async {
-                final channelNumber = glasses['channelNumber']!;
-                await BleManager.get().connectToGlasses("Pair_$channelNumber");
-                _refreshPage();
-              },
-              child: Container(
-                height: 72,
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                decoration: BoxDecoration(
-                  color: Colors.white,
-                  borderRadius: BorderRadius.circular(5),
-                ),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Column(
-                      mainAxisAlignment: MainAxisAlignment.center,
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text('Pair: ${glasses['channelNumber']}'),
-                        Text(
-                          'Left: ${glasses['leftDeviceName']} \nRight: ${glasses['rightDeviceName']}',
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
-              ),
-            );
-          },
-        ),
+  Widget _buildPairedList() {
+    final pairs = BleManager.get().getPairedGlasses();
+
+    if (pairs.isEmpty) {
+      return const Center(
+        child: Text("No paired glasses found yet"),
       );
+    }
+
+    return Expanded(
+      child: ListView.separated(
+        separatorBuilder: (_, __) => const SizedBox(height: 5),
+        itemCount: pairs.length,
+        itemBuilder: (context, index) {
+          final glasses = pairs[index];
+          return GestureDetector(
+            onTap: () async {
+              final channelNumber = glasses['channelNumber'] ?? "0";
+              await BleManager.get().connectToGlasses("Pair_$channelNumber");
+              _refreshPage();
+            },
+            child: Container(
+              height: 72,
+              padding: const EdgeInsets.symmetric(horizontal: 16),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(5),
+              ),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('Pair: ${glasses['channelNumber']}'),
+                      Text(
+                        'Left: ${glasses['leftDeviceName']} \nRight: ${glasses['rightDeviceName']}',
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+            ),
+          );
+        },
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final ble = BleManager.get();
+    final status = BleManager.get().getConnectionStatus();
 
     return Scaffold(
       appBar: AppBar(
@@ -106,31 +119,29 @@ class _HomePageState extends State<HomePage> {
             onTap: () {
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const FeaturesPage()),
+                MaterialPageRoute(builder: (_) => const FeaturesPage()),
               );
             },
             splashColor: Colors.transparent,
             highlightColor: Colors.transparent,
             child: const Padding(
-              padding: EdgeInsets.only(left: 16, top: 12, bottom: 14, right: 16),
+              padding: EdgeInsets.all(12),
               child: Icon(Icons.menu),
             ),
           ),
         ],
       ),
       body: Padding(
-        padding: const EdgeInsets.only(left: 16, right: 16, top: 12, bottom: 44),
+        padding: const EdgeInsets.fromLTRB(16, 12, 16, 44),
         child: Column(
-          mainAxisAlignment: MainAxisAlignment.start,
           children: [
+            // Connection status tile
             GestureDetector(
               onTap: () async {
-                if (!ble.isConnected) {
-                  if (!isScanning) {
-                    _startScan();
-                  }
+                if (status == 'Not connected') {
+                  _startScan();
                 } else {
-                  await ble.disconnectFromGlasses();
+                  await BleManager.get().disconnectFromGlasses();
                   _refreshPage();
                 }
               },
@@ -142,14 +153,18 @@ class _HomePageState extends State<HomePage> {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  ble.getConnectionStatus(),
+                  status,
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            if (!ble.isConnected) blePairedList(),
-            if (ble.isConnected)
+
+            // Show scan/paired list if not connected
+            if (status == 'Not connected') _buildPairedList(),
+
+            // Show EvenAI stream when connected
+            if (BleManager.get().isConnected)
               Expanded(
                 child: GestureDetector(
                   onTap: () async {
@@ -180,7 +195,7 @@ class _HomePageState extends State<HomePage> {
                                   snapshot.data ?? "Loading...",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: ble.isConnected
+                                    color: BleManager.get().isConnected
                                         ? Colors.black
                                         : Colors.grey.withOpacity(0.5),
                                   ),
@@ -200,8 +215,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   void dispose() {
-    scanTimer?.cancel();
-    isScanning = false;
+    _scanTimer?.cancel();
+    _isScanning = false;
     BleManager.get().onStatusChanged = null;
     super.dispose();
   }
