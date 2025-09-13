@@ -1,46 +1,61 @@
-// android/app/build.gradle
+// android/app/build.gradle (Module: app)
+
 plugins {
-    id "com.android.application"
-    id "org.jetbrains.kotlin.android"
-    id "dev.flutter.flutter-plugin-loader"
+    id 'com.android.application'
+    id 'kotlin-android'
 }
 
 android {
     namespace "com.example.demo_ai_even"
-    compileSdk 34
+    compileSdkVersion 34
 
     defaultConfig {
         applicationId "com.example.demo_ai_even"
-        minSdk 24
-        targetSdk 34
+        minSdkVersion 24
+        targetSdkVersion 34
         versionCode 1
         versionName "1.0"
+
+        // Needed for method channels with many deps
         multiDexEnabled true
     }
 
     buildTypes {
         release {
-            minifyEnabled true
-            shrinkResources true
+            // Keep this simple first; R8 can be re-enabled later
+            minifyEnabled false
+            shrinkResources false
             proguardFiles getDefaultProguardFile('proguard-android-optimize.txt'), 'proguard-rules.pro'
         }
         debug {
             minifyEnabled false
+            shrinkResources false
         }
     }
 
+    compileOptions {
+        // Actions uses Java 17
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
     kotlinOptions {
-        jvmTarget = "17"
+        jvmTarget = '17'
+        freeCompilerArgs += ['-Xjvm-default=all']
     }
 
     packagingOptions {
         resources {
-            excludes += [ "META-INF/*" ]
+            // avoid META-INF collisions from plugins
+            excludes += ['META-INF/*', 'META-INF/DEPENDENCIES', 'META-INF/INDEX.LIST']
         }
     }
 }
 
 dependencies {
-    // Keep this lean; Flutter adds most stuff.
-    implementation "org.jetbrains.kotlin:kotlin-stdlib"
+    // Kotlin stdlib is brought by plugin; keeping explicit is harmless
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
+
+    // (Optional) multidex if you hit the 65K methods limit
+    implementation 'androidx.multidex:multidex:2.0.1'
 }
