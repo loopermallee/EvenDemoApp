@@ -6,26 +6,26 @@ import 'package:flutter/services.dart';
 typedef StatusChangedCallback = void Function();
 
 class BleManager {
-  // ===== Singleton =====
+  // === Singleton ===
   static final BleManager _instance = BleManager._internal();
   static BleManager get instance => _instance;
   static BleManager get() => _instance;
 
   BleManager._internal();
 
-  // ===== Channels =====
+  // === Flutter <-> Android channels ===
   static const _methodChannel = MethodChannel("method.bluetooth");
   static const _eventChannel = EventChannel("eventBleReceive");
 
   StreamSubscription? _eventSubscription;
   StatusChangedCallback? onStatusChanged;
 
-  // ===== State =====
+  // === State ===
   bool isConnected = false;
   String _connectionStatus = "Not connected";
   final List<Map<String, String>> _pairedGlasses = [];
 
-  /// Must be called at startup (in main.dart)
+  /// Set up handler for MethodChannel callbacks (Android → Flutter)
   void setMethodCallHandler() {
     _methodChannel.setMethodCallHandler((call) async {
       print("[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
@@ -59,7 +59,7 @@ class BleManager {
     });
   }
 
-  /// Start listening to BLE data events
+  /// Start listening for EventChannel messages (Kotlin → Flutter events)
   void startListening() {
     _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
       print("[BleManager] EventChannel BLE → $event");
@@ -73,7 +73,8 @@ class BleManager {
     _eventSubscription = null;
   }
 
-  // ===== Scan =====
+  // === BLE Actions (Flutter → Android) ===
+
   Future<void> startScan() async {
     try {
       await _methodChannel.invokeMethod("startScan");
@@ -92,7 +93,6 @@ class BleManager {
     }
   }
 
-  // ===== Connect / Disconnect =====
   Future<void> connectToGlasses(String channel) async {
     try {
       await _methodChannel.invokeMethod("connectToGlass", {
@@ -116,7 +116,6 @@ class BleManager {
     }
   }
 
-  // ===== Send data back to glasses =====
   Future<void> sendData(Uint8List data, {String? lr}) async {
     try {
       await _methodChannel.invokeMethod("senData", {
@@ -129,7 +128,7 @@ class BleManager {
     }
   }
 
-  // ===== Helpers =====
+  // === Helpers ===
   String getConnectionStatus() => _connectionStatus;
   List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
 }
