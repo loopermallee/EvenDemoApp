@@ -6,62 +6,65 @@ import 'package:flutter/services.dart';
 typedef StatusChangedCallback = void Function();
 
 class BleManager {
-  // ===== Singleton =====
+  // Singleton
   static final BleManager _instance = BleManager._internal();
+  static BleManager get instance => _instance;
   static BleManager get() => _instance;
+
   BleManager._internal();
 
-  // ===== Channels (must match Kotlin) =====
+  // Native ↔ Flutter channels
   static const _methodChannel = MethodChannel("method.bluetooth");
-  static const _eventChannel  = EventChannel("eventBleReceive");
+  static const _eventChannel = EventChannel("eventBleReceive");
 
-  // ===== State =====
   StreamSubscription? _eventSubscription;
   StatusChangedCallback? onStatusChanged;
 
+  // State
   bool isConnected = false;
   String _connectionStatus = "Not connected";
   final List<Map<String, String>> _pairedGlasses = [];
 
-  // ===== Native → Flutter (Method callbacks) =====
+  /// Must be called at startup (in main.dart)
   void setMethodCallHandler() {
     _methodChannel.setMethodCallHandler((call) async {
+      print("[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
+
       switch (call.method) {
         case "flutterFoundPairedGlasses":
-          final args = Map<String, dynamic>.from(call.arguments);
+          final args = Map<String, dynamic>.from(call.arguments ?? {});
           _pairedGlasses.add({
-            "channelNumber"   : args["channelNumber"].toString(),
-            "leftDeviceName"  : (args["leftDeviceName"]  ?? "Unknown").toString(),
-            "rightDeviceName" : (args["rightDeviceName"] ?? "Unknown").toString(),
+            "channelNumber": args["channelNumber"]?.toString() ?? "0",
+            "leftDeviceName": args["leftDeviceName"] ?? "Unknown",
+            "rightDeviceName": args["rightDeviceName"] ?? "Unknown",
           });
-          _connectionStatus = "Paired found";
           break;
 
         case "flutterGlassesConnected":
           isConnected = true;
-          // call.arguments is a map from toConnectedJson(); show channel if present
-          final m = (call.arguments is Map) ? Map<String, dynamic>.from(call.arguments) : const {};
-          final ch = (m["channelNumber"] ?? "").toString();
-          _connectionStatus = ch.isNotEmpty ? "Connected to G1_$ch" : "Connected";
+          _connectionStatus = "Connected to ${call.arguments}";
+          break;
+
+        case "flutterGlassesDisconnected":
+          isConnected = false;
+          _connectionStatus = "Not connected";
           break;
 
         default:
-          // ignore
+          print("[BleManager] ⚠️ Unhandled method: ${call.method}");
           break;
       }
+
       onStatusChanged?.call();
     });
   }
 
-  // ===== Events stream from Android (BLE data) =====
+  /// Start listening to BLE events
   void startListening() {
-    _eventSubscription ??=
-        _eventChannel.receiveBroadcastStream().listen((event) {
-      // Shape: { "lr": "L"/"R", "data": <Uint8List>, "type": "VoiceChunk"/"Receive" }
-      // Hook here if you need to forward to STT/AI.
-      // print("BLE Event: $event");
-    }, onError: (e) {
-      // print("BLE Event error: $e");
+    _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
+      print("[BleManager] EventChannel BLE → $event");
+    }, onError: (err) {
+      print("[BleManager] EventChannel error → $err");
     });
   }
 
@@ -70,37 +73,34 @@ class BleManager {
     _eventSubscription = null;
   }
 
-  // ===== Flutter → Android calls =====
+  // 🔍 Scan
   Future<void> startScan() async {
     try {
       await _methodChannel.invokeMethod("startScan");
-      _connectionStatus = "Scanning...";
-      onStatusChanged?.call();
+      print("[BleManager] startScan invoked");
     } catch (e) {
-      // print("startScan error: $e");
+      print("[BleManager] startScan error: $e");
     }
   }
 
   Future<void> stopScan() async {
     try {
       await _methodChannel.invokeMethod("stopScan");
-      _connectionStatus = "Not connected";
-      onStatusChanged?.call();
+      print("[BleManager] stopScan invoked");
     } catch (e) {
-      // print("stopScan error: $e");
+      print("[BleManager] stopScan error: $e");
     }
   }
 
-  /// Your HomePage currently passes strings like "Pair_45".
-  /// We accept both "45" and "Pair_45" and always send only "45" to Android.
-  Future<void> connectToGlasses(String channelOrPair) async {
+  // 🔗 Connect / Disconnect
+  Future<void> connectToGlasses(String channel) async {
     try {
-      final channel = _extractChannel(channelOrPair);
-      await _methodChannel.invokeMethod("connectToGlass", {"deviceChannel": channel});
-      _connectionStatus = "Connecting…";
-      onStatusChanged?.call();
+      await _methodChannel.invokeMethod("connectToGlass", {
+        "deviceChannel": channel,
+      });
+      print("[BleManager] connectToGlasses($channel) invoked");
     } catch (e) {
-      // print("connectToGlasses error: $e");
+      print("[BleManager] connectToGlasses error: $e");
     }
   }
 
@@ -110,34 +110,26 @@ class BleManager {
       isConnected = false;
       _connectionStatus = "Not connected";
       onStatusChanged?.call();
+      print("[BleManager] disconnectFromGlasses invoked");
     } catch (e) {
-      // print("disconnectFromGlasses error: $e");
+      print("[BleManager] disconnectFromGlasses error: $e");
     }
   }
 
-  /// Send raw bytes to the glasses.
-  /// [lr] can be "L", "R", or null (both).
+  // 🆕 Send data back to glasses
   Future<void> sendData(Uint8List data, {String? lr}) async {
     try {
       await _methodChannel.invokeMethod("senData", {
         "data": data,
-        "lr": lr,
+        "lr": lr, // "L", "R", or null (both)
       });
+      print("[BleManager] sendData success: len=${data.length}, lr=$lr");
     } catch (e) {
-      // print("sendData error: $e");
+      print("[BleManager] sendData error: $e");
     }
   }
 
-  // ===== Public getters =====
+  // Helpers
   String getConnectionStatus() => _connectionStatus;
   List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
-
-  // ===== Helpers =====
-  String _extractChannel(String s) {
-    // Accept "45" or "Pair_45"
-    if (s.startsWith("Pair_")) {
-      return s.substring(5);
-    }
-    return s;
-  }
 }
