@@ -1,19 +1,31 @@
 // lib/main.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
-import 'app.dart'; // MyApp + App singleton
+import 'app.dart';
 import 'controllers/evenai_model_controller.dart';
+import 'ble_manager.dart';
+import 'views/home_page.dart';
 
 void main() {
-  // Make sure Flutter is fully ready before we touch channels/controllers
-  WidgetsFlutterBinding.ensureInitialized();
+  // Initialize BLE channels immediately
+  BleManager.get().setMethodCallHandler();
+  BleManager.get().startListening();
 
-  // Register your EvenAI state controller once, keep it alive for whole app
-  Get.put(EvenaiModelController(), permanent: true);
-
-  // Touch the App singleton (handy if you later add global boot logic)
-  App.get;
+  // Initialize EvenAI controller
+  Get.put(EvenaiModelController());
 
   runApp(const MyApp());
+}
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Even AI Demo',
+      theme: ThemeData(primarySwatch: Colors.blue),
+      home: const HomePage(),
+    );
+  }
 }
