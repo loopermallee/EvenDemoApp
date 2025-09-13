@@ -25,7 +25,7 @@ object BleChannelHelper {
         bleReceive = EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_BLE_RECEIVE)
         bleReceive.setStreamHandler(object : EventChannel.StreamHandler {
             override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
-                sinks[EVENT_BLE_RECEIVE] = sink!!
+                sink?.let { sinks[EVENT_BLE_RECEIVE] = it }
             }
             override fun onCancel(args: Any?) {
                 sinks.remove(EVENT_BLE_RECEIVE)
@@ -39,7 +39,7 @@ object BleChannelHelper {
             when (call.method) {
                 "startScan" -> BleManager.instance.startScan(result)
                 "stopScan" -> BleManager.instance.stopScan(result)
-                "connectToGlass" -> {
+                "connectToGlass", "connectToGlasses" -> {
                     val deviceChannel = call.argument<String>("deviceChannel")
                     if (deviceChannel != null) {
                         BleManager.instance.connectToGlass(deviceChannel, result)
@@ -61,7 +61,7 @@ object BleChannelHelper {
         EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_SPEECH)
             .setStreamHandler(object : EventChannel.StreamHandler {
                 override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
-                    sinks[EVENT_SPEECH] = sink!!
+                    sink?.let { sinks[EVENT_SPEECH] = it }
                 }
                 override fun onCancel(args: Any?) {
                     sinks.remove(EVENT_SPEECH)
@@ -83,7 +83,7 @@ object BleChannelHelper {
             }
     }
 
-    // Flutter → Kotlin: use bleMC
+    // Kotlin → Flutter (notify via MethodChannel)
     fun invokeFlutter(method: String, args: Any?) {
         if (::bleMC.isInitialized) {
             bleMC.invokeMethod(method, args)
@@ -92,7 +92,7 @@ object BleChannelHelper {
         }
     }
 
-    // Kotlin → Flutter: push events
+    // Kotlin → Flutter (send event via EventChannel)
     fun emit(eventChannelName: String, payload: Any?) {
         sinks[eventChannelName]?.success(payload)
             ?: Log.w(TAG, "emit: no sink for $eventChannelName")
