@@ -1,6 +1,7 @@
 // lib/ble_manager.dart
 import 'dart:async';
 import 'dart:typed_data';
+import 'package:flutter/foundation.dart'; // For ValueNotifier
 import 'package:flutter/services.dart';
 
 typedef StatusChangedCallback = void Function();
@@ -20,15 +21,18 @@ class BleManager {
   StreamSubscription? _eventSubscription;
   StatusChangedCallback? onStatusChanged;
 
-  // State
-  bool isConnected = false;
-  String _connectionStatus = "Not connected";
+  // State (with notifiers for UI)
+  final ValueNotifier<bool> isConnected = ValueNotifier<bool>(false);
+  final ValueNotifier<String> connectionStatus =
+      ValueNotifier<String>("Not connected");
+
   final List<Map<String, String>> _pairedGlasses = [];
 
   /// Must be called at startup (in main.dart)
   void setMethodCallHandler() {
     _methodChannel.setMethodCallHandler((call) async {
-      print("[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
+      print(
+          "[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
 
       switch (call.method) {
         case "flutterFoundPairedGlasses":
@@ -41,13 +45,15 @@ class BleManager {
           break;
 
         case "flutterGlassesConnected":
-          isConnected = true;
-          _connectionStatus = "Connected to ${call.arguments}";
+          if (!isConnected.value) {
+            isConnected.value = true;
+            connectionStatus.value = "Connected to ${call.arguments}";
+          }
           break;
 
         case "flutterGlassesDisconnected":
-          isConnected = false;
-          _connectionStatus = "Not connected";
+          isConnected.value = false;
+          connectionStatus.value = "Not connected";
           break;
 
         default:
@@ -76,6 +82,7 @@ class BleManager {
   // 🔍 Scan
   Future<void> startScan() async {
     try {
+      _pairedGlasses.clear(); // ✅ clear old devices
       await _methodChannel.invokeMethod("startScan");
       print("[BleManager] startScan invoked");
     } catch (e) {
@@ -107,8 +114,8 @@ class BleManager {
   Future<void> disconnectFromGlasses() async {
     try {
       await _methodChannel.invokeMethod("disconnectFromGlasses");
-      isConnected = false;
-      _connectionStatus = "Not connected";
+      isConnected.value = false;
+      connectionStatus.value = "Not connected";
       onStatusChanged?.call();
       print("[BleManager] disconnectFromGlasses invoked");
     } catch (e) {
@@ -130,6 +137,7 @@ class BleManager {
   }
 
   // Helpers
-  String getConnectionStatus() => _connectionStatus;
-  List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
+  String getConnectionStatus() => connectionStatus.value;
+  List<Map<String, String>> getPairedGlasses() =>
+      List.unmodifiable(_pairedGlasses);
 }
