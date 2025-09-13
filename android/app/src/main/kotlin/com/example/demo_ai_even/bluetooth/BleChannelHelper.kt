@@ -1,3 +1,4 @@
+// android/app/src/main/kotlin/com/example/demo_ai_even/bluetooth/BleChannelHelper.kt
 package com.example.demo_ai_even.bluetooth
 
 import android.app.Activity
@@ -10,36 +11,32 @@ import io.flutter.plugin.common.MethodChannel
 object BleChannelHelper {
     private const val TAG = "BleChannelHelper"
 
+    // Channel names
     private const val METHOD_BLUETOOTH = "method.bluetooth"
     private const val EVENT_BLE_RECEIVE = "eventBleReceive"
     private const val METHOD_SPEECH = "method.speech"
     private const val EVENT_SPEECH = "eventSpeechRecognize"
 
+    // Channels
     private lateinit var bleMC: MethodChannel
     private lateinit var bleReceive: EventChannel
+    private lateinit var speechMC: MethodChannel
+    private lateinit var speechEvent: EventChannel
 
+    // Store active event sinks by name
     private val sinks: MutableMap<String, EventChannel.EventSink> = mutableMapOf()
 
     fun initChannel(activity: Activity, flutterEngine: FlutterEngine) {
-        // === BLE EventChannel ===
-        bleReceive = EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_BLE_RECEIVE)
-        bleReceive.setStreamHandler(object : EventChannel.StreamHandler {
-            override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
-                sink?.let { sinks[EVENT_BLE_RECEIVE] = it }
-            }
-            override fun onCancel(args: Any?) {
-                sinks.remove(EVENT_BLE_RECEIVE)
-            }
-        })
+        val messenger = flutterEngine.dartExecutor.binaryMessenger
 
         // === BLE MethodChannel ===
-        bleMC = MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_BLUETOOTH)
+        bleMC = MethodChannel(messenger, METHOD_BLUETOOTH)
         bleMC.setMethodCallHandler { call, result ->
-            Log.d(TAG, "Received method: ${call.method}")
+            Log.d(TAG, "Received method: ${call.method}, args=${call.arguments}")
             when (call.method) {
                 "startScan" -> BleManager.instance.startScan(result)
                 "stopScan" -> BleManager.instance.stopScan(result)
-                "connectToGlass", "connectToGlasses" -> {
+                "connectToGlass" -> {
                     val deviceChannel = call.argument<String>("deviceChannel")
                     if (deviceChannel != null) {
                         BleManager.instance.connectToGlass(deviceChannel, result)
@@ -57,44 +54,61 @@ object BleChannelHelper {
             }
         }
 
-        // === Speech EventChannel ===
-        EventChannel(flutterEngine.dartExecutor.binaryMessenger, EVENT_SPEECH)
-            .setStreamHandler(object : EventChannel.StreamHandler {
-                override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
-                    sink?.let { sinks[EVENT_SPEECH] = it }
-                }
-                override fun onCancel(args: Any?) {
-                    sinks.remove(EVENT_SPEECH)
-                }
-            })
+        // === BLE EventChannel ===
+        bleReceive = EventChannel(messenger, EVENT_BLE_RECEIVE)
+        bleReceive.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
+                sinks[EVENT_BLE_RECEIVE] = sink!!
+                Log.i(TAG, "BLE event channel connected")
+            }
+
+            override fun onCancel(args: Any?) {
+                sinks.remove(EVENT_BLE_RECEIVE)
+                Log.i(TAG, "BLE event channel disconnected")
+            }
+        })
 
         // === Speech MethodChannel ===
-        MethodChannel(flutterEngine.dartExecutor.binaryMessenger, METHOD_SPEECH)
-            .setMethodCallHandler { call, result ->
-                when (call.method) {
-                    "start" -> SpeechBridge.start(activity) { ok, err ->
-                        if (ok) result.success(true)
-                        else result.error("speech_start_failed", err ?: "unknown", null)
-                    }
-                    "stop" -> { SpeechBridge.stop(finalize = true); result.success(true) }
-                    "cancel" -> { SpeechBridge.stop(finalize = false); result.success(true) }
-                    else -> result.notImplemented()
+        speechMC = MethodChannel(messenger, METHOD_SPEECH)
+        speechMC.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "start" -> SpeechBridge.start(activity) { ok, err ->
+                    if (ok) result.success(true)
+                    else result.error("speech_start_failed", err ?: "unknown", null)
                 }
+                "stop" -> { SpeechBridge.stop(finalize = true); result.success(true) }
+                "cancel" -> { SpeechBridge.stop(finalize = false); result.success(true) }
+                else -> result.notImplemented()
             }
+        }
+
+        // === Speech EventChannel ===
+        speechEvent = EventChannel(messenger, EVENT_SPEECH)
+        speechEvent.setStreamHandler(object : EventChannel.StreamHandler {
+            override fun onListen(args: Any?, sink: EventChannel.EventSink?) {
+                sinks[EVENT_SPEECH] = sink!!
+                Log.i(TAG, "Speech event channel connected")
+            }
+
+            override fun onCancel(args: Any?) {
+                sinks.remove(EVENT_SPEECH)
+                Log.i(TAG, "Speech event channel disconnected")
+            }
+        })
     }
 
-    // Kotlin → Flutter (notify via MethodChannel)
+    // Kotlin → Flutter events
+    fun emit(eventChannelName: String, payload: Any?) {
+        sinks[eventChannelName]?.success(payload)
+            ?: Log.w(TAG, "emit: no active sink for $eventChannelName")
+    }
+
+    // Flutter → Kotlin (call back into Flutter)
     fun invokeFlutter(method: String, args: Any?) {
         if (::bleMC.isInitialized) {
             bleMC.invokeMethod(method, args)
         } else {
-            Log.w(TAG, "bleMC not initialized yet")
+            Log.w(TAG, "invokeFlutter: bleMC not initialized yet")
         }
-    }
-
-    // Kotlin → Flutter (send event via EventChannel)
-    fun emit(eventChannelName: String, payload: Any?) {
-        sinks[eventChannelName]?.success(payload)
-            ?: Log.w(TAG, "emit: no sink for $eventChannelName")
     }
 }
