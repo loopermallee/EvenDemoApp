@@ -1,13 +1,13 @@
-// ignore_for_file: library_private_types_in_public_api
-
+// lib/views/home_page.dart
 import 'dart:async';
-import 'package:demo_ai_even/ble_manager.dart';
-import 'package:demo_ai_even/services/evenai.dart';
-import 'package:demo_ai_even/views/even_list_page.dart';
-import 'package:demo_ai_even/views/features_page.dart';
-import 'package:demo_ai_even/views/api_settings_page.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+
+import '../ble_manager.dart';
+import '../services/evenai.dart';
+import 'even_list_page.dart';
+import 'features_page.dart';
+import 'api_settings_page.dart';
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -33,7 +33,6 @@ class _HomePageState extends State<HomePage> {
     setState(() => isScanning = true);
     await BleManager.get().startScan();
     scanTimer?.cancel();
-    // requires get: you already have it; 15.seconds is provided by get's extension
     scanTimer = Timer(15.seconds, () {
       _stopScan();
     });
@@ -88,6 +87,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
+    final ble = BleManager.get();
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Even AI Demo'),
@@ -124,8 +125,13 @@ class _HomePageState extends State<HomePage> {
           children: [
             GestureDetector(
               onTap: () async {
-                if (BleManager.get().getConnectionStatus() == 'Not connected') {
-                  _startScan();
+                if (!ble.isConnected) {
+                  if (!isScanning) {
+                    _startScan();
+                  }
+                } else {
+                  await ble.disconnectFromGlasses();
+                  _refreshPage();
                 }
               },
               child: Container(
@@ -136,15 +142,14 @@ class _HomePageState extends State<HomePage> {
                 ),
                 alignment: Alignment.center,
                 child: Text(
-                  BleManager.get().getConnectionStatus(),
+                  ble.getConnectionStatus(),
                   style: const TextStyle(fontSize: 16),
                 ),
               ),
             ),
             const SizedBox(height: 16),
-            if (BleManager.get().getConnectionStatus() == 'Not connected')
-              blePairedList(),
-            if (BleManager.get().isConnected)
+            if (!ble.isConnected) blePairedList(),
+            if (ble.isConnected)
               Expanded(
                 child: GestureDetector(
                   onTap: () async {
@@ -175,7 +180,7 @@ class _HomePageState extends State<HomePage> {
                                   snapshot.data ?? "Loading...",
                                   style: TextStyle(
                                     fontSize: 14,
-                                    color: BleManager.get().isConnected
+                                    color: ble.isConnected
                                         ? Colors.black
                                         : Colors.grey.withOpacity(0.5),
                                   ),
