@@ -1,9 +1,10 @@
 // lib/views/home_page.dart
+// ignore_for_file: library_private_types_in_public_api
+
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
-// your app files
 import 'package:demo_ai_even/ble_manager.dart';
 import 'package:demo_ai_even/services/evenai.dart';
 import 'package:demo_ai_even/views/even_list_page.dart';
@@ -25,7 +26,8 @@ class _HomePageState extends State<HomePage> {
     super.initState();
     BleManager.get().setMethodCallHandler();
     BleManager.get().startListening();
-    BleManager.get().onStatusChanged = _refreshPage;
+    // Rebuild the page when BleManager’s state changes
+    BleManager.get().isConnected.addListener(_refreshPage);
   }
 
   void _refreshPage() => setState(() {});
@@ -34,7 +36,7 @@ class _HomePageState extends State<HomePage> {
     setState(() => isScanning = true);
     await BleManager.get().startScan();
     scanTimer?.cancel();
-    scanTimer = Timer(const Duration(seconds: 15), _stopScan);
+    scanTimer = Timer(15.seconds, _stopScan); // 'get' adds .seconds
   }
 
   Future<void> _stopScan() async {
@@ -86,7 +88,8 @@ class _HomePageState extends State<HomePage> {
 
   @override
   Widget build(BuildContext context) {
-    final bool connected = BleManager.get().isConnected;
+    // ✅ Read the ValueNotifier<bool> correctly
+    final bool connected = BleManager.get().isConnected.value;
 
     return Scaffold(
       appBar: AppBar(
@@ -124,9 +127,7 @@ class _HomePageState extends State<HomePage> {
           children: [
             GestureDetector(
               onTap: () async {
-                if (!connected) {
-                  _startScan();
-                }
+                if (!connected) _startScan();
               },
               child: Container(
                 height: 100,
@@ -196,7 +197,7 @@ class _HomePageState extends State<HomePage> {
   void dispose() {
     scanTimer?.cancel();
     isScanning = false;
-    BleManager.get().onStatusChanged = null;
+    BleManager.get().isConnected.removeListener(_refreshPage);
     super.dispose();
   }
 }
