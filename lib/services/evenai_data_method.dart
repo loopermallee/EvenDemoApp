@@ -4,7 +4,7 @@
 
 class EvenAIDataMethod {
   /// Split long text into lines that fit the HUD (≈34 chars per line).
-  /// text_service.dart sends 5 lines per page.
+  /// text_service.dart sends ~5 lines per page.
   static List<String> measureStringList(String text, {int maxCharsPerLine = 34}) {
     final cleaned = text.replaceAll('\r', ' ').replaceAll('\t', ' ');
     final words = cleaned.split(RegExp(r'\s+'));
