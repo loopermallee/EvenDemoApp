@@ -1,134 +1,18 @@
-// lib/ble_manager.dart
-import 'dart:async';
-import 'dart:typed_data';
-import 'package:flutter/services.dart';
+  // === Compatibility shims (allow older code to compile) ===
 
-typedef StatusChangedCallback = void Function();
+  // Old proto.dart used this; now just reflect the single "isConnected" flag.
+  bool isBothConnected() => isConnected;
 
-class BleManager {
-  // === Singleton ===
-  static final BleManager _instance = BleManager._internal();
-  static BleManager get instance => _instance;
-  static BleManager get() => _instance;
-
-  BleManager._internal();
-
-  // === Flutter <-> Android channels ===
-  static const _methodChannel = MethodChannel("method.bluetooth");
-  static const _eventChannel = EventChannel("eventBleReceive");
-
-  StreamSubscription? _eventSubscription;
-  StatusChangedCallback? onStatusChanged;
-
-  // === State ===
-  bool isConnected = false;
-  String _connectionStatus = "Not connected";
-  final List<Map<String, String>> _pairedGlasses = [];
-
-  /// Set up handler for MethodChannel callbacks (Android → Flutter)
-  void setMethodCallHandler() {
-    _methodChannel.setMethodCallHandler((call) async {
-      print("[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
-
-      switch (call.method) {
-        case "flutterFoundPairedGlasses":
-          final args = Map<String, dynamic>.from(call.arguments ?? {});
-          _pairedGlasses.add({
-            "channelNumber": args["channelNumber"]?.toString() ?? "0",
-            "leftDeviceName": args["leftDeviceName"] ?? "Unknown",
-            "rightDeviceName": args["rightDeviceName"] ?? "Unknown",
-          });
-          break;
-
-        case "flutterGlassesConnected":
-          isConnected = true;
-          _connectionStatus = "Connected to ${call.arguments}";
-          break;
-
-        case "flutterGlassesDisconnected":
-          isConnected = false;
-          _connectionStatus = "Not connected";
-          break;
-
-        default:
-          print("[BleManager] ⚠️ Unhandled method: ${call.method}");
-          break;
-      }
-
-      onStatusChanged?.call();
-    });
+  // Old "request" API: we now just forward to sendData and pretend success.
+  Future<Map<String, dynamic>> request(Uint8List data, {String? lr}) async {
+    await sendData(data, lr: lr);
+    return {"ok": true, "data": Uint8List(0)};
   }
 
-  /// Start listening for EventChannel messages (Kotlin → Flutter events)
-  void startListening() {
-    _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
-      print("[BleManager] EventChannel BLE → $event");
-    }, onError: (err) {
-      print("[BleManager] EventChannel error → $err");
-    });
-  }
-
-  void stopListening() {
-    _eventSubscription?.cancel();
-    _eventSubscription = null;
-  }
-
-  // === BLE Actions (Flutter → Android) ===
-
-  Future<void> startScan() async {
-    try {
-      await _methodChannel.invokeMethod("startScan");
-      print("[BleManager] startScan invoked");
-    } catch (e) {
-      print("[BleManager] startScan error: $e");
+  // Old "requestList" API: sequentially send and report success.
+  Future<bool> requestList(List<Uint8List> list, {String? lr}) async {
+    for (final d in list) {
+      await sendData(d, lr: lr);
     }
+    return true;
   }
-
-  Future<void> stopScan() async {
-    try {
-      await _methodChannel.invokeMethod("stopScan");
-      print("[BleManager] stopScan invoked");
-    } catch (e) {
-      print("[BleManager] stopScan error: $e");
-    }
-  }
-
-  Future<void> connectToGlasses(String channel) async {
-    try {
-      await _methodChannel.invokeMethod("connectToGlass", {
-        "deviceChannel": channel,
-      });
-      print("[BleManager] connectToGlasses($channel) invoked");
-    } catch (e) {
-      print("[BleManager] connectToGlasses error: $e");
-    }
-  }
-
-  Future<void> disconnectFromGlasses() async {
-    try {
-      await _methodChannel.invokeMethod("disconnectFromGlasses");
-      isConnected = false;
-      _connectionStatus = "Not connected";
-      onStatusChanged?.call();
-      print("[BleManager] disconnectFromGlasses invoked");
-    } catch (e) {
-      print("[BleManager] disconnectFromGlasses error: $e");
-    }
-  }
-
-  Future<void> sendData(Uint8List data, {String? lr}) async {
-    try {
-      await _methodChannel.invokeMethod("senData", {
-        "data": data,
-        "lr": lr, // "L", "R", or null (both)
-      });
-      print("[BleManager] sendData success: len=${data.length}, lr=$lr");
-    } catch (e) {
-      print("[BleManager] sendData error: $e");
-    }
-  }
-
-  // === Helpers ===
-  String getConnectionStatus() => _connectionStatus;
-  List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
-}
