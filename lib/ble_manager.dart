@@ -1,38 +1,34 @@
 // lib/ble_manager.dart
 import 'dart:async';
 import 'dart:typed_data';
-import 'package:flutter/foundation.dart'; // For ValueNotifier
 import 'package:flutter/services.dart';
 
 typedef StatusChangedCallback = void Function();
 
 class BleManager {
-  // Singleton
+  // ===== Singleton =====
   static final BleManager _instance = BleManager._internal();
   static BleManager get instance => _instance;
   static BleManager get() => _instance;
 
   BleManager._internal();
 
-  // Native ↔ Flutter channels
+  // ===== Channels =====
   static const _methodChannel = MethodChannel("method.bluetooth");
   static const _eventChannel = EventChannel("eventBleReceive");
 
   StreamSubscription? _eventSubscription;
   StatusChangedCallback? onStatusChanged;
 
-  // State (with notifiers for UI)
-  final ValueNotifier<bool> isConnected = ValueNotifier<bool>(false);
-  final ValueNotifier<String> connectionStatus =
-      ValueNotifier<String>("Not connected");
-
+  // ===== State =====
+  bool isConnected = false;
+  String _connectionStatus = "Not connected";
   final List<Map<String, String>> _pairedGlasses = [];
 
   /// Must be called at startup (in main.dart)
   void setMethodCallHandler() {
     _methodChannel.setMethodCallHandler((call) async {
-      print(
-          "[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
+      print("[BleManager] MethodCall from Android → ${call.method}, args=${call.arguments}");
 
       switch (call.method) {
         case "flutterFoundPairedGlasses":
@@ -45,15 +41,13 @@ class BleManager {
           break;
 
         case "flutterGlassesConnected":
-          if (!isConnected.value) {
-            isConnected.value = true;
-            connectionStatus.value = "Connected to ${call.arguments}";
-          }
+          isConnected = true;
+          _connectionStatus = "Connected to ${call.arguments}";
           break;
 
         case "flutterGlassesDisconnected":
-          isConnected.value = false;
-          connectionStatus.value = "Not connected";
+          isConnected = false;
+          _connectionStatus = "Not connected";
           break;
 
         default:
@@ -65,7 +59,7 @@ class BleManager {
     });
   }
 
-  /// Start listening to BLE events
+  /// Start listening to BLE data events
   void startListening() {
     _eventSubscription = _eventChannel.receiveBroadcastStream().listen((event) {
       print("[BleManager] EventChannel BLE → $event");
@@ -79,10 +73,9 @@ class BleManager {
     _eventSubscription = null;
   }
 
-  // 🔍 Scan
+  // ===== Scan =====
   Future<void> startScan() async {
     try {
-      _pairedGlasses.clear(); // ✅ clear old devices
       await _methodChannel.invokeMethod("startScan");
       print("[BleManager] startScan invoked");
     } catch (e) {
@@ -99,7 +92,7 @@ class BleManager {
     }
   }
 
-  // 🔗 Connect / Disconnect
+  // ===== Connect / Disconnect =====
   Future<void> connectToGlasses(String channel) async {
     try {
       await _methodChannel.invokeMethod("connectToGlass", {
@@ -114,8 +107,8 @@ class BleManager {
   Future<void> disconnectFromGlasses() async {
     try {
       await _methodChannel.invokeMethod("disconnectFromGlasses");
-      isConnected.value = false;
-      connectionStatus.value = "Not connected";
+      isConnected = false;
+      _connectionStatus = "Not connected";
       onStatusChanged?.call();
       print("[BleManager] disconnectFromGlasses invoked");
     } catch (e) {
@@ -123,7 +116,7 @@ class BleManager {
     }
   }
 
-  // 🆕 Send data back to glasses
+  // ===== Send data back to glasses =====
   Future<void> sendData(Uint8List data, {String? lr}) async {
     try {
       await _methodChannel.invokeMethod("senData", {
@@ -136,8 +129,7 @@ class BleManager {
     }
   }
 
-  // Helpers
-  String getConnectionStatus() => connectionStatus.value;
-  List<Map<String, String>> getPairedGlasses() =>
-      List.unmodifiable(_pairedGlasses);
+  // ===== Helpers =====
+  String getConnectionStatus() => _connectionStatus;
+  List<Map<String, String>> getPairedGlasses() => List.unmodifiable(_pairedGlasses);
 }
