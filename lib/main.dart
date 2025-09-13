@@ -1,26 +1,23 @@
-// lib/main.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 // Your app files
-import 'ble_manager.dart';
-import 'controllers/evenai_model_controller.dart';
-import 'views/home_page.dart';
+import 'package:demo_ai_even/ble_manager.dart';
+import 'package:demo_ai_even/controllers/evenai_model_controller.dart';
+import 'package:demo_ai_even/views/home_page.dart';
 
 void main() {
-  // Make sure Flutter bindings are ready (safe for channel setup)
   WidgetsFlutterBinding.ensureInitialized();
 
-  // 1) Start listening to Android channels BEFORE UI builds.
-  //    This prevents missing early events like "found glasses" or "connected".
+  // Setup BLE channels early
   BleManager.get().setMethodCallHandler();
   BleManager.get().startListening();
 
-  // 2) Set up your GetX controller(s)
+  // Setup GetX state
   Get.put(EvenaiModelController());
 
-  // 3) Robust error logging (so CI logs are clearer)
+  // Error handling
   FlutterError.onError = (FlutterErrorDetails details) {
     FlutterError.dumpErrorToConsole(details);
   };
@@ -28,8 +25,6 @@ void main() {
   runZonedGuarded(() {
     runApp(const MyApp());
   }, (error, stack) {
-    // Last-resort catcher for async errors
-    // (kept simple so logs show up clearly in CI)
     // ignore: avoid_print
     print('Zoned error: $error\n$stack');
   });
@@ -40,8 +35,8 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // If you later add themes/localization, keep this simple scaffold as-is.
-    return MaterialApp(
+    // Use GetMaterialApp if you want GetX navigation
+    return GetMaterialApp(
       title: 'Even AI Demo',
       theme: ThemeData(
         useMaterial3: true,
