@@ -34,12 +34,14 @@ jobs:
           set -o pipefail
           flutter build apk --release 2>&1 | tee build-log.txt
 
-      - name: Upload logs as artifact
-        if: failure()
+      - name: Upload build artifacts
+        if: always() # Upload even if the job fails
         uses: actions/upload-artifact@v4
         with:
-          name: build-logs
-          path: build-log.txt
+          name: build-artifacts
+          path: |
+            build-log.txt
+            build/app/outputs/flutter-apk/
 
       - name: Export build failure to GitHub Issue
         if: failure()
