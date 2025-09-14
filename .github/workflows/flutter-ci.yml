@@ -1,4 +1,4 @@
-name: Flutter CI (Debug + Release with Smart Reporting)
+name: Flutter CI (Debug + Release with Smart Issues + Cache)
 
 on:
   push:
@@ -7,13 +7,40 @@ on:
     branches: [ main ]
 
 jobs:
-  build-android:
+  build:
     runs-on: ubuntu-latest
 
     steps:
+      # ---------------------------
+      # Checkout repository
+      # ---------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
+      # ---------------------------
+      # Cache Flutter & Gradle
+      # ---------------------------
+      - name: Cache Flutter SDK
+        uses: actions/cache@v3
+        with:
+          path: ~/.pub-cache
+          key: flutter-pub-${{ hashFiles('pubspec.yaml') }}
+          restore-keys: |
+            flutter-pub-
+
+      - name: Cache Gradle
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+          key: gradle-${{ runner.os }}-${{ hashFiles('**/*.gradle*', '**/gradle-wrapper.properties') }}
+          restore-keys: |
+            gradle-${{ runner.os }}
+
+      # ---------------------------
+      # Set up environment
+      # ---------------------------
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
@@ -28,87 +55,72 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # Debug build
-      - name: Build Android APK (Debug)
-        id: debug
+      # ---------------------------
+      # Build Debug APK
+      # ---------------------------
+      - name: Build Debug APK
+        id: build-debug
         run: |
           set -o pipefail
           echo "🔨 Building Debug APK..."
-          flutter build apk --debug 2>&1 | tee debug-log.txt
-          echo "debug_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          flutter build apk --debug 2>&1 | tee build-debug-log.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # Release build
-      - name: Build Android APK (Release)
-        id: release
+      # ---------------------------
+      # Build Release APK
+      # ---------------------------
+      - name: Build Release APK
+        id: build-release
         run: |
           set -o pipefail
           echo "🔨 Building Release APK..."
-          flutter build apk --release 2>&1 | tee release-log.txt
-          echo "release_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          flutter build apk --release 2>&1 | tee build-release-log.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # Upload success APKs
-      - name: Upload APKs as artifacts
-        if: success()
+      # ---------------------------
+      # Upload Artifacts
+      # ---------------------------
+      - name: Upload APKs & Logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: android-apks-${{ github.sha }}
+          name: build-artifacts-${{ github.sha }}
           path: |
-            build/app/outputs/flutter-apk/app-debug.apk
-            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/*.apk
+            build-debug-log.txt
+            build-release-log.txt
           retention-days: 7
 
-      # ✅ Auto-close CI failure issues on success
-      - name: Close old CI failure issues (on success)
-        if: success()
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const issues = await github.rest.issues.listForRepo({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              state: 'open',
-              labels: 'ci-failure,auto-generated'
-            });
-            for (const issue of issues.data) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                state: 'closed',
-                comment: "✅ Build succeeded — closing this auto-generated failure report."
-              });
-            }
-
-      # Upload logs if failure
-      - name: Upload logs as artifacts
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-logs-${{ github.sha }}
-          path: |
-            debug-log.txt
-            release-log.txt
-          retention-days: 7
-
-      # Create issue if failure
-      - name: Create formatted issue body
+      # ---------------------------
+      # Create Issue on Failure
+      # ---------------------------
+      - name: Prepare Issue Body
         if: failure()
         run: |
           cat > issue-body.md << 'EOF'
-          # 🚨 CI Build Failure Report
-          Branch: `${{ github.ref_name }}`
-          Commit: `${{ github.sha }}`
-          Workflow: ${{ github.workflow }}
-          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          # 🚨 CI Build Failure
 
-          ## Logs (last 30 lines)
+          **Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          **Workflow:** [${{ github.workflow }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+          **Actor:** ${{ github.actor }}
+          **Date:** $(date -u '+%Y-%m-%d %H:%M:%S UTC')
+
+          ---
+          ## Debug Build Log (last 20 lines)
           ```
-          $(tail -30 debug-log.txt 2>/dev/null || echo "No debug log")
-          $(tail -30 release-log.txt 2>/dev/null || echo "No release log")
+          $(tail -20 build-debug-log.txt)
           ```
+
+          ## Release Build Log (last 20 lines)
+          ```
+          $(tail -20 build-release-log.txt)
+          ```
+
+          ---
+          *Auto-generated by GitHub Actions*
           EOF
 
-      - name: Close old CI failure issues (before creating new one)
+      - name: Auto-Close Old CI Issues
         if: failure()
         uses: actions/github-script@v7
         with:
@@ -117,22 +129,26 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'ci-failure,auto-generated'
+              labels: 'ci-failure'
             });
+
             for (const issue of issues.data) {
-              await github.rest.issues.update({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                issue_number: issue.number,
-                state: 'closed'
-              });
+              if (issue.title.includes('CI Build Failure')) {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed'
+                });
+                console.log(`Closed old CI issue #${issue.number}`);
+              }
             }
 
       - name: Create GitHub Issue
         if: failure()
         uses: peter-evans/create-issue-from-file@v5
         with:
-          title: "🚨 CI Build Failure - ${{ github.ref_name }} (${{ github.sha }})"
+          title: "🚨 CI Build Failure - ${{ github.ref_name }}"
           content-filepath: issue-body.md
           labels: |
             bug
