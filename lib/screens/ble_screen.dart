@@ -12,6 +12,7 @@ class BLESScreen extends StatefulWidget {
 class _BLESScreenState extends State<BLESScreen> {
   final BLEService _bleService = BLEService();
   List<BluetoothDevice> devices = [];
+  BluetoothDevice? connectedDevice;
   bool isScanning = false;
 
   Future<void> _scanDevices() async {
@@ -26,6 +27,7 @@ class _BLESScreenState extends State<BLESScreen> {
   Future<void> _connectToDevice(BluetoothDevice device) async {
     try {
       await _bleService.connectToDevice(device);
+      setState(() => connectedDevice = device);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("✅ Connected to ${device.name.isNotEmpty ? device.name : device.id}")),
@@ -37,6 +39,18 @@ class _BLESScreenState extends State<BLESScreen> {
           SnackBar(content: Text("❌ Connection failed: $e")),
         );
       }
+    }
+  }
+
+  Future<void> _disconnectDevice() async {
+    if (connectedDevice != null) {
+      await _bleService.disconnectFromDevice(connectedDevice!);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("🔌 Disconnected from ${connectedDevice!.name.isNotEmpty ? connectedDevice!.name : connectedDevice!.id}")),
+        );
+      }
+      setState(() => connectedDevice = null);
     }
   }
 
@@ -52,6 +66,11 @@ class _BLESScreenState extends State<BLESScreen> {
             icon: const Icon(Icons.refresh),
             onPressed: _scanDevices,
           ),
+          if (connectedDevice != null)
+            IconButton(
+              icon: const Icon(Icons.link_off),
+              onPressed: _disconnectDevice,
+            ),
         ],
       ),
       body: isScanning
@@ -68,14 +87,18 @@ class _BLESScreenState extends State<BLESScreen> {
                   itemCount: devices.length,
                   itemBuilder: (context, index) {
                     final device = devices[index];
+                    final isConnected = connectedDevice?.id == device.id;
+
                     return ListTile(
                       title: Text(
                         device.name.isNotEmpty ? device.name : device.id.toString(),
                         style: theme.textTheme.bodyLarge,
                       ),
                       trailing: ElevatedButton(
-                        onPressed: () => _connectToDevice(device),
-                        child: const Text("CONNECT"),
+                        onPressed: isConnected
+                            ? _disconnectDevice
+                            : () => _connectToDevice(device),
+                        child: Text(isConnected ? "DISCONNECT" : "CONNECT"),
                       ),
                     );
                   },
