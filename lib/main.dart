@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screens/test_screen.dart'; // Make sure this path exists
 
 void main() {
   runApp(const EvenDemoApp());
@@ -15,108 +16,83 @@ class EvenDemoApp extends StatelessWidget {
       theme: ThemeData(
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
-        fontFamily: 'PixelFont',
-
-        // Global text theme
+        primaryColor: Colors.greenAccent,
+        fontFamily: 'PressStart2P', // Make sure the font is added in pubspec.yaml
         textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Color(0xFF00FF00)),
-          bodyMedium: TextStyle(color: Color(0xFF00FF00)),
-          bodySmall: TextStyle(color: Color(0xFF00FF00)),
+          bodyLarge: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 14,
+            fontFamily: 'PressStart2P',
+          ),
+          bodyMedium: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 12,
+            fontFamily: 'PressStart2P',
+          ),
+          bodySmall: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 10,
+            fontFamily: 'PressStart2P',
+          ),
         ),
-
-        // App bar theme
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.black,
-          foregroundColor: Color(0xFF00FF00),
+          foregroundColor: Colors.greenAccent,
           elevation: 0,
+          titleTextStyle: TextStyle(
+            fontFamily: 'PressStart2P',
+            fontSize: 14,
+            color: Colors.greenAccent,
+          ),
         ),
-
-        // Elevated buttons
+        snackBarTheme: const SnackBarThemeData(
+          backgroundColor: Colors.black,
+          contentTextStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PressStart2P',
+          ),
+        ),
+        dialogTheme: const DialogTheme(
+          backgroundColor: Colors.black,
+          titleTextStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PressStart2P',
+            fontSize: 14,
+          ),
+          contentTextStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PressStart2P',
+            fontSize: 12,
+          ),
+        ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
-            foregroundColor: Colors.black,
-            backgroundColor: const Color(0xFF00FF00),
-            textStyle: const TextStyle(fontFamily: 'PixelFont'),
+            backgroundColor: Colors.black,
+            foregroundColor: Colors.greenAccent,
+            textStyle: const TextStyle(
+              fontFamily: 'PressStart2P',
+              fontSize: 12,
+            ),
+            side: const BorderSide(color: Colors.greenAccent, width: 1),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.zero,
             ),
           ),
         ),
-
-        // Text buttons
-        textButtonTheme: TextButtonThemeData(
-          style: TextButton.styleFrom(
-            foregroundColor: const Color(0xFF00FF00),
-            textStyle: const TextStyle(fontFamily: 'PixelFont'),
-          ),
-        ),
-
-        // Input fields (TextFormField, TextField)
         inputDecorationTheme: const InputDecorationTheme(
-          filled: true,
-          fillColor: Colors.black,
-          hintStyle: TextStyle(color: Color(0xFF00FF00)),
-          labelStyle: TextStyle(color: Color(0xFF00FF00)),
+          labelStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PressStart2P',
+          ),
           enabledBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xFF00FF00)),
+            borderSide: BorderSide(color: Colors.greenAccent),
           ),
           focusedBorder: OutlineInputBorder(
-            borderSide: BorderSide(color: Color(0xFF00FF00), width: 2),
-          ),
-        ),
-
-        // Snackbars
-        snackBarTheme: const SnackBarThemeData(
-          backgroundColor: Colors.black,
-          contentTextStyle: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'PixelFont',
-          ),
-          actionTextColor: Color(0xFF00FF00),
-        ),
-
-        // Dialogs
-        dialogTheme: const DialogTheme(
-          backgroundColor: Colors.black,
-          titleTextStyle: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'PixelFont',
-          ),
-          contentTextStyle: TextStyle(
-            color: Color(0xFF00FF00),
-            fontFamily: 'PixelFont',
+            borderSide: BorderSide(color: Colors.greenAccent, width: 2),
           ),
         ),
       ),
-      home: const LoadingScreen(),
-    );
-  }
-}
-
-class LoadingScreen extends StatelessWidget {
-  const LoadingScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: const [
-            CircularProgressIndicator(
-              valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF00FF00)),
-            ),
-            SizedBox(height: 16),
-            Text(
-              "LOADING...",
-              style: TextStyle(
-                fontSize: 16,
-                color: Color(0xFF00FF00),
-              ),
-            ),
-          ],
-        ),
-      ),
+      home: const TestScreen(),
     );
   }
 }
