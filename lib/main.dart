@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'screens/ble_screen.dart';
 import 'screens/evenai_screen.dart';
+import 'screens/home_screen.dart';
+import 'screens/settings_screen.dart';
 
 void main() {
   runApp(const EvenDemoApp());
@@ -93,10 +95,11 @@ class EvenDemoApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const BLESScreen(), // ✅ Start from BLE screen
+      home: const HomeScreen(), // ✅ Start from Home menu screen
       routes: {
         '/ble': (context) => const BLESScreen(),
         '/evenai': (context) => const EvenAIScreen(),
+        '/settings': (context) => const SettingsScreen(),
       },
     );
   }
