@@ -2,7 +2,6 @@
 # Even Demo
 # EvenDemoApp
 
-![Flutter CI](https://github.com/loopermallee/EvenDemoApp/actions/workflows/flutter-ci.yml/badge.svg)
 ## Even AI
 The general process of the Even AI function is as follows: After the app and glasses are 
 connected via dual Bluetooth, long press the left-side TouchBar on the glasses to enter the 
