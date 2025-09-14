@@ -1,18 +1,50 @@
-// Ensure no references to flutter.compileSdkVersion etc.
+plugins {
+    id "com.android.application"
+    id "kotlin-android"
+    id "dev.flutter.flutter-gradle-plugin"
+}
+
 android {
     namespace "com.loopermallee.evendemoapp"
-    compileSdk = 34
+    compileSdk = 34   // ✅ modern syntax
 
     defaultConfig {
         applicationId "com.loopermallee.evendemoapp"
-        minSdk 23
-        targetSdk 34
+        minSdk = 23
+        targetSdk = 34
         versionCode 1
         versionName "1.0"
+
         multiDexEnabled true
     }
-    // ...
+
+    buildTypes {
+        release {
+            signingConfig null
+            minifyEnabled false
+            shrinkResources false
+            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
+        }
+        debug {
+            signingConfig signingConfigs.debug
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    kotlinOptions {
+        jvmTarget = "11"
+    }
 }
 
-// Remove or comment out any:
-// flutter { source '../..' }
+flutter {
+    source "../.."
+}
+
+dependencies {
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
+    implementation "androidx.multidex:multidex:2.0.1"
+}
