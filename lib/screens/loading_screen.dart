@@ -34,10 +34,15 @@ class _LoadingScreenState extends State<LoadingScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      backgroundColor: Colors.black, // ✅ Retro black background
       body: Center(
         child: Text(
           "$displayText$cursor",
-          style: Theme.of(context).textTheme.bodyLarge?.copyWith(fontSize: 16),
+          style: const TextStyle(
+            fontFamily: 'PixelFont', // ✅ Pixel retro font
+            color: Colors.greenAccent, // ✅ Neon green
+            fontSize: 16,
+          ),
         ),
       ),
     );
