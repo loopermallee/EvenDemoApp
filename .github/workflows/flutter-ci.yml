@@ -1,0 +1,77 @@
+name: Flutter CI with Auto-Issue Export
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Set up Java
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build APK
+        run: |
+          flutter clean
+          flutter build apk --verbose 2>&1 | tee build_log.txt
+
+      - name: Upload build log as artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: build-log
+          path: build_log.txt
+          retention-days: 7
+
+      - name: Export error to GitHub Issues
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const log = fs.readFileSync('build_log.txt', 'utf8');
+            const summary = log.split("\n").slice(-40).join("\n");
+
+            const body = `
+### 🚨 Build Failed
+**Branch:** ${process.env.GITHUB_REF}
+**Commit:** ${process.env.GITHUB_SHA}
+
+### 🔎 Last 40 log lines
+\`\`\`
+--- LOG START ---
+${summary}
+--- LOG END ---
+\`\`\`
+
+### 📦 Debug Info
+- Flutter version: 3.22.0
+- Java version: 17 (Temurin)
+- Runner: Ubuntu
+- Workflow: Flutter CI with Auto-Issue Export
+`;
+
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: "❌ CI Build Failed",
+              body: body,
+              labels: ["ci-failure", "auto-export"]
+            });
