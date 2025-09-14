@@ -1,79 +1,66 @@
-name: Flutter CI with Auto-Issue Export
+name: Flutter CI (Android) with Auto-Issue Export
 
 on:
   push:
-    branches: [ main ]
+    branches: [ "main" ]
   pull_request:
-    branches: [ main ]
+    branches: [ "main" ]
 
 jobs:
-  build:
+  build-android:
     runs-on: ubuntu-latest
 
     steps:
-      # Checkout repository
-      - name: Checkout source
+      - name: Checkout repository
         uses: actions/checkout@v4
 
-      # Setup Java (required for Android builds)
-      - name: Set up JDK 17
+      - name: Set up Java
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: 17
 
-      # Setup Flutter
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: 3.24.3   # ✅ use your Flutter version
+          flutter-version: "3.24.3"
 
-      # Install dependencies
       - name: Install dependencies
         run: flutter pub get
 
-      # Run build
-      - name: Build APK
-        run: flutter build apk --release
-        continue-on-error: true
+      - name: Run flutter doctor
+        run: flutter doctor -v > flutter_doctor.txt
 
-      # Upload build artifacts (for debugging/download)
-      - name: Upload build artifacts
+      - name: Build APK (capture logs)
+        run: |
+          flutter build apk --release 2>&1 | tee build_log.txt
+
+      - name: Upload artifacts (APK + logs)
         uses: actions/upload-artifact@v4
         with:
           name: flutter-build
-          path: build/app/outputs/flutter-apk/
+          path: |
+            build/app/outputs/flutter-apk/*.apk
+            flutter_doctor.txt
+            build_log.txt
 
-      # Upload logs for troubleshooting
-      - name: Upload logs
+      - name: Export logs on failure
         if: failure()
-        uses: actions/upload-artifact@v4
+        run: |
+          echo "### Flutter Build Failed 🚨" > issue.md
+          echo "" >> issue.md
+          echo "Commit: $GITHUB_SHA" >> issue.md
+          echo "" >> issue.md
+          echo "#### Flutter Doctor" >> issue.md
+          cat flutter_doctor.txt >> issue.md || echo "No doctor log" >> issue.md
+          echo "" >> issue.md
+          echo "#### Full Build Log" >> issue.md
+          cat build_log.txt >> issue.md || echo "No build log"
+
+      - name: Create GitHub Issue on failure
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
         with:
-          name: build-logs
-          path: build/
-
-  export-issue:
-    needs: build
-    runs-on: ubuntu-latest
-    if: failure()
-
-    steps:
-      - name: Checkout source
-        uses: actions/checkout@v4
-
-      # Download logs from previous job
-      - name: Download build logs
-        uses: actions/download-artifact@v4
-        with:
-          name: build-logs
-          path: ./logs
-
-      # Create a GitHub issue if build fails
-      - name: Create issue on failure
-        uses: peter-evans/create-issue-from-file@v4
-        with:
-          title: "Flutter CI Build Failed 🚨"
-          content-filepath: ./logs/flutter_01.log
-          labels: |
-            bug
-            CI
+          title: "Flutter CI Build Failure 🚨"
+          content-filepath: issue.md
+          labels: bug, ci, android
