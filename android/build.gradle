@@ -21,6 +21,12 @@ allprojects {
     }
 }
 
+// ✅ Debug print to check what Gradle reads for workers
+gradle.projectsEvaluated {
+    def workersMax = project.hasProperty("org.gradle.workers.max") ? project.property("org.gradle.workers.max") : "NOT SET"
+    println "🔧 GRADLE WORKERS MAX = ${workersMax}"
+}
+
 rootProject.buildDir = "../build"
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
@@ -31,23 +37,4 @@ subprojects {
 
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
-}
-
-// ✅ Patch for AGP 8.x plugin compatibility (fixes flutter_blue_plus and others)
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty("android")) {
-            project.android {
-                // Ensure all modules use same SDK versions
-                compileSdkVersion 34
-                defaultConfig {
-                    minSdkVersion 23
-                }
-                // Namespace required for AGP 8.x
-                if (!namespace) {
-                    namespace project.name
-                }
-            }
-        }
-    }
 }
