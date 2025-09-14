@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import '../services/ble.dart'; // Import BLEService
+import '../services/ble.dart';
 
 class BLESScreen extends StatefulWidget {
   const BLESScreen({super.key});
@@ -14,6 +14,29 @@ class _BLESScreenState extends State<BLESScreen> {
   List<BluetoothDevice> devices = [];
   BluetoothDevice? connectedDevice;
   bool isScanning = false;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _tryReconnectLast();
+  }
+
+  /// Try reconnecting to last known device on app launch
+  Future<void> _tryReconnectLast() async {
+    final device = await _bleService.reconnectLastDevice();
+    if (mounted) {
+      setState(() {
+        connectedDevice = device;
+        isLoading = false;
+      });
+      if (device != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("🔄 Auto-reconnected to ${device.name.isNotEmpty ? device.name : device.id}")),
+        );
+      }
+    }
+  }
 
   Future<void> _scanDevices() async {
     setState(() => isScanning = true);
@@ -58,6 +81,12 @@ class _BLESScreenState extends State<BLESScreen> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    if (isLoading) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator(color: Colors.greenAccent)),
+      );
+    }
+
     return Scaffold(
       appBar: AppBar(
         title: const Text("🔍 BLUETOOTH SCAN"),
@@ -78,7 +107,9 @@ class _BLESScreenState extends State<BLESScreen> {
           : devices.isEmpty
               ? Center(
                   child: Text(
-                    "No devices found.\nPress refresh to scan.",
+                    connectedDevice == null
+                        ? "No devices found.\nPress refresh to scan."
+                        : "Connected to ${connectedDevice!.name.isNotEmpty ? connectedDevice!.name : connectedDevice!.id}",
                     style: theme.textTheme.bodyMedium,
                     textAlign: TextAlign.center,
                   ),
