@@ -1,29 +1,36 @@
 import 'package:flutter/material.dart';
-import 'ble_screen.dart';
-import 'evenai_screen.dart';
 
 class HomeScreen extends StatelessWidget {
   const HomeScreen({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("HOME")),
-      body: Padding(
-        padding: const EdgeInsets.all(16),
+      appBar: AppBar(
+        title: const Text("Even Demo App"),
+        centerTitle: true,
+      ),
+      body: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(24),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
-              onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const EvenAIScreen())),
-              child: const Text("🤖 EVEN AI"),
+              onPressed: () => Navigator.pushNamed(context, '/ble'),
+              child: const Text("🔍 Bluetooth Scanner"),
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 16),
             ElevatedButton(
-              onPressed: () => Navigator.push(
-                context, MaterialPageRoute(builder: (_) => const BLESScreen())),
-              child: const Text("🔌 BLUETOOTH"),
+              onPressed: () => Navigator.pushNamed(context, '/evenai'),
+              child: const Text("🤖 EvenAI"),
+            ),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => Navigator.pushNamed(context, '/settings'),
+              child: const Text("⚙️ Settings"),
             ),
           ],
         ),
