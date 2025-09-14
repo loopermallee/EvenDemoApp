@@ -25,6 +25,11 @@ jobs:
         with:
           flutter-version: '3.24.3'
 
+      # ✅ Install Android SDK Build Tools 34 (fix for CI error)
+      - name: Install Android SDK Build Tools 34
+        run: |
+          yes | sdkmanager --install "platforms;android-34" "build-tools;34.0.0"
+
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
