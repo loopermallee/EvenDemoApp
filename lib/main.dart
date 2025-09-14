@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'screens/test_screen.dart'; // Make sure this path exists
+import 'screens/test_screen.dart'; // Make sure this path exists: lib/screens/test_screen.dart
 
 void main() {
   runApp(const EvenDemoApp());
@@ -17,22 +17,22 @@ class EvenDemoApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
         primaryColor: Colors.greenAccent,
-        fontFamily: 'PressStart2P', // Make sure the font is added in pubspec.yaml
+        fontFamily: 'PixelFont', // ✅ matches pubspec.yaml
         textTheme: const TextTheme(
           bodyLarge: TextStyle(
             color: Colors.greenAccent,
             fontSize: 14,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
           ),
           bodyMedium: TextStyle(
             color: Colors.greenAccent,
             fontSize: 12,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
           ),
           bodySmall: TextStyle(
             color: Colors.greenAccent,
             fontSize: 10,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
           ),
         ),
         appBarTheme: const AppBarTheme(
@@ -40,7 +40,7 @@ class EvenDemoApp extends StatelessWidget {
           foregroundColor: Colors.greenAccent,
           elevation: 0,
           titleTextStyle: TextStyle(
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
             fontSize: 14,
             color: Colors.greenAccent,
           ),
@@ -49,19 +49,19 @@ class EvenDemoApp extends StatelessWidget {
           backgroundColor: Colors.black,
           contentTextStyle: TextStyle(
             color: Colors.greenAccent,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
           ),
         ),
         dialogTheme: const DialogTheme(
           backgroundColor: Colors.black,
           titleTextStyle: TextStyle(
             color: Colors.greenAccent,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
             fontSize: 14,
           ),
           contentTextStyle: TextStyle(
             color: Colors.greenAccent,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
             fontSize: 12,
           ),
         ),
@@ -70,7 +70,7 @@ class EvenDemoApp extends StatelessWidget {
             backgroundColor: Colors.black,
             foregroundColor: Colors.greenAccent,
             textStyle: const TextStyle(
-              fontFamily: 'PressStart2P',
+              fontFamily: 'PixelFont',
               fontSize: 12,
             ),
             side: const BorderSide(color: Colors.greenAccent, width: 1),
@@ -82,7 +82,7 @@ class EvenDemoApp extends StatelessWidget {
         inputDecorationTheme: const InputDecorationTheme(
           labelStyle: TextStyle(
             color: Colors.greenAccent,
-            fontFamily: 'PressStart2P',
+            fontFamily: 'PixelFont',
           ),
           enabledBorder: OutlineInputBorder(
             borderSide: BorderSide(color: Colors.greenAccent),
