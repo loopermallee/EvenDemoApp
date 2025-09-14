@@ -57,7 +57,7 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ✅ Always merge logs (even if only one exists)
+      # ✅ Always merge logs (safe, even if one build fails)
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
@@ -70,9 +70,13 @@ jobs:
           name: build-logs
           path: build-log.txt
 
+      # ✅ Generate issue body with evaluated logs (not placeholders)
       - name: Create formatted issue body on failure
         if: failure()
         run: |
+          ERRORS=$(tail -40 build-log.txt | grep -i "error\|exception\|failed\|fatal" || echo "No errors detected in last 40 lines")
+          FULL_LOG=$(cat build-log.txt)
+
           cat > issue-body.md <<EOF
           # 🚨 CI Build Failure Report
           **Branch:** ${{ github.ref_name }}
@@ -80,16 +84,16 @@ jobs:
           **Workflow Run:** [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           ## ❌ Key Errors
-          ```
-          $(tail -40 build-log.txt | grep -i "error\|exception\|failed\|fatal" || echo "No errors detected in last 40 lines")
-          ```
+          \`\`\`
+          $ERRORS
+          \`\`\`
 
           ## 📋 Full Log
           <details><summary>Expand</summary>
 
-          ```
-          $(cat build-log.txt)
-          ```
+          \`\`\`
+          $FULL_LOG
+          \`\`\`
 
           </details>
 
