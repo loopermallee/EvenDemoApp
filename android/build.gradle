@@ -1,26 +1,16 @@
 // Project-level build.gradle
 
-buildscript {
-    ext {
-        kotlin_version = '1.9.10'
-        compileSdkVersion = 34
-    }
-    repositories {
-        google()
-        mavenCentral()
-        maven { url 'https://jitpack.io' }
-    }
-    dependencies {
-        classpath 'com.android.tools.build:gradle:8.2.2'
-        classpath "org.jetbrains.kotlin:kotlin-gradle-plugin:$kotlin_version"
-    }
+plugins {
+    id "com.android.application" version "8.2.2" apply false
+    id "org.jetbrains.kotlin.android" version "1.9.10" apply false
+    id "dev.flutter.flutter-gradle-plugin" version "1.0.0" apply false
 }
 
 allprojects {
     repositories {
         google()
         mavenCentral()
-        maven { url 'https://jitpack.io' }
+        maven { url "https://jitpack.io" }
     }
 }
 
@@ -28,23 +18,6 @@ rootProject.buildDir = "../build"
 
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
-}
-
-subprojects {
-    project.evaluationDependsOn(":app")
-}
-
-// ✅ Ensure all Android subprojects have compileSdkVersion
-subprojects {
-    afterEvaluate { project ->
-        if (project.hasProperty("android")) {
-            project.android {
-                if (!project.android.hasProperty("compileSdkVersion")) {
-                    compileSdkVersion rootProject.ext.compileSdkVersion
-                }
-            }
-        }
-    }
 }
 
 tasks.register("clean", Delete) {
