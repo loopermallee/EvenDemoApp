@@ -1,6 +1,6 @@
-  - name: Check for existing open issues
-    if: failure()
-    id: check_issues
+  # Keep all CI failure issues open but auto-close when resolved
+  - name: Auto-close resolved CI failure issues
+    if: success()
     uses: actions/github-script@v7
     with:
       script: |
@@ -10,18 +10,18 @@
           state: 'open',
           labels: 'ci-failure,auto-generated'
         });
-        
-        // Close any existing auto-generated CI failure issues
+
         for (const issue of issues.data) {
-          if (issue.title.includes('CI Build Failure')) {
+          // Auto-close only if issue title contains this branch or commit
+          if (issue.title.includes(process.env.GITHUB_REF_NAME) ||
+              issue.title.includes(process.env.GITHUB_SHA)) {
             await github.rest.issues.update({
               owner: context.repo.owner,
               repo: context.repo.repo,
               issue_number: issue.number,
-              state: 'closed'
+              state: 'closed',
+              body: "✅ CI build has passed for this branch/commit. Closing issue automatically."
             });
-            console.log(`Closed previous issue #${issue.number}`);
+            console.log(`Closed resolved CI issue #${issue.number}`);
           }
         }
-        
-        return 'ready';
