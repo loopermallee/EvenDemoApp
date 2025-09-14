@@ -15,41 +15,28 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
     final query = _controller.text.trim();
     if (query.isEmpty) return;
 
-    setState(() {
-      response = "🤖 THINKING...";
-    });
+    setState(() => response = "🤖 Thinking...");
 
-    // TODO: integrate with evenai_service.dart call
+    // TODO: integrate with real evenai_service
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
-        response = "AI SAYS: 'HELLO FROM EVENAI (MOCK RESPONSE)!'";
+        response = "AI says: 'Hello from EvenAI (mock response)!'";
       });
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("🤖 EVENAI"),
-        centerTitle: true,
-      ),
-      body: Container(
-        color: Colors.black,
+      appBar: AppBar(title: const Text("🤖 EVEN AI")),
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             TextField(
               controller: _controller,
-              style: theme.textTheme.bodyLarge,
-              cursorColor: Colors.greenAccent,
-              decoration: InputDecoration(
-                hintText: "ASK ME ANYTHING...",
-                hintStyle: theme.textTheme.bodyLarge?.copyWith(
-                  color: Colors.green.shade700,
-                ),
+              decoration: const InputDecoration(
+                hintText: "Ask me anything...", // ✅ inherits PixelFont + green
               ),
             ),
             const SizedBox(height: 12),
@@ -60,13 +47,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(
-                  response,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    fontSize: 12,
-                    height: 1.5,
-                  ),
-                ),
+                child: Text(response),
               ),
             ),
           ],
