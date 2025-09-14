@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 class EvenAIScreen extends StatefulWidget {
-  const EvenAIScreen({Key? key}) : super(key: key);
+  const EvenAIScreen({super.key});
 
   @override
   State<EvenAIScreen> createState() => _EvenAIScreenState();
@@ -16,13 +16,13 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
     if (query.isEmpty) return;
 
     setState(() {
-      response = "🤖 Thinking...";
+      response = "🤖 THINKING...";
     });
 
     // TODO: integrate with evenai_service.dart call
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
-        response = "AI says: 'Hello from EvenAI (mock response)!'";
+        response = "AI SAYS: 'HELLO FROM EVENAI (MOCK RESPONSE)!'";
       });
     });
   }
@@ -33,7 +33,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text("🤖 EvenAI"),
+        title: const Text("🤖 EVENAI"),
         centerTitle: true,
       ),
       body: Container(
@@ -46,15 +46,9 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
               style: theme.textTheme.bodyLarge,
               cursorColor: Colors.greenAccent,
               decoration: InputDecoration(
-                hintText: "Ask me anything...",
+                hintText: "ASK ME ANYTHING...",
                 hintStyle: theme.textTheme.bodyLarge?.copyWith(
                   color: Colors.green.shade700,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.greenAccent.shade400, width: 2),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.greenAccent.shade200, width: 2),
                 ),
               ),
             ),
@@ -68,7 +62,10 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
               child: SingleChildScrollView(
                 child: Text(
                   response,
-                  style: theme.textTheme.bodyLarge,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    fontSize: 12,
+                    height: 1.5,
+                  ),
                 ),
               ),
             ),
