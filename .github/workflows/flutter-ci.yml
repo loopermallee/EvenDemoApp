@@ -31,7 +31,6 @@ jobs:
       - name: Build APK
         run: |
           flutter clean
-          # Capture build logs to file
           flutter build apk --verbose 2>&1 | tee build_log.txt
 
       - name: Upload build log as artifact
@@ -48,26 +47,25 @@ jobs:
           script: |
             const fs = require('fs');
             const log = fs.readFileSync('build_log.txt', 'utf8');
-            const summary = log.split("\n").slice(-40).join("\n");
+            const lines = log.split("\n");
+            const summary = lines.slice(-40).join("\n");
 
-            const body = `
-### 🚨 Build Failed
-**Branch:** ${process.env.GITHUB_REF}
-**Commit:** ${process.env.GITHUB_SHA}
-
-### 🔎 Last 40 log lines
-\`\`\`
---- LOG START ---
-${summary}
---- LOG END ---
-\`\`\`
-
-### 📦 Debug Info
-- Flutter version: 3.22.0
-- Java version: 17 (Temurin)
-- Runner: Ubuntu
-- Workflow: Flutter CI with Auto-Issue Export
-`;
+            const body = [
+              "### 🚨 Build Failed",
+              `**Branch:** ${process.env.GITHUB_REF}`,
+              `**Commit:** ${process.env.GITHUB_SHA}`,
+              "",
+              "### 🔎 Last 40 log lines",
+              "```",
+              summary,
+              "```",
+              "",
+              "### 📦 Debug Info",
+              "- Flutter version: 3.22.0",
+              "- Java version: 17 (Temurin)",
+              "- Runner: Ubuntu",
+              "- Workflow: Flutter CI with Auto-Issue Export"
+            ].join("\n");
 
             await github.rest.issues.create({
               owner: context.repo.owner,
