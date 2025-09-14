@@ -1,7 +1,10 @@
 // Project-level build.gradle
 
 buildscript {
-    ext.kotlin_version = '1.9.10'
+    ext {
+        kotlin_version = '1.9.10'
+        compileSdkVersion = 34
+    }
     repositories {
         google()
         mavenCentral()
@@ -21,18 +24,27 @@ allprojects {
     }
 }
 
-// ✅ Debug print to check what Gradle reads for workers
-gradle.projectsEvaluated {
-    def workersMax = project.hasProperty("org.gradle.workers.max") ? project.property("org.gradle.workers.max") : "NOT SET"
-    println "🔧 GRADLE WORKERS MAX = ${workersMax}"
-}
-
 rootProject.buildDir = "../build"
+
 subprojects {
     project.buildDir = "${rootProject.buildDir}/${project.name}"
 }
+
 subprojects {
     project.evaluationDependsOn(":app")
+}
+
+// ✅ Ensure all Android subprojects have compileSdkVersion
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                if (!project.android.hasProperty("compileSdkVersion")) {
+                    compileSdkVersion rootProject.ext.compileSdkVersion
+                }
+            }
+        }
+    }
 }
 
 tasks.register("clean", Delete) {
