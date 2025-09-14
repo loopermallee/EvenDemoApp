@@ -1,4 +1,4 @@
-// Project-level build.gradle (android/build.gradle)
+// Project-level build.gradle
 
 buildscript {
     ext.kotlin_version = '1.9.10'
