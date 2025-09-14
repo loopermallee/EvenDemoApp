@@ -16,6 +16,7 @@ dependencies:
   get: ^4.6.6
   crclib: ^3.0.0
   fluttertoast: ^8.2.8
+  flutter_blue_plus: ^1.31.15   # ✅ Add this for Bluetooth support
 
 dev_dependencies:
   flutter_test:
