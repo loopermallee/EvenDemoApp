@@ -1,4 +1,4 @@
-name: Flutter CI (Android Debug + Release Builds with Smart Issue Reporting)
+name: Flutter CI (Debug + Release with Smart Reporting)
 
 on:
   push:
@@ -11,9 +11,6 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # ------------------------
-      # Checkout & Setup
-      # ------------------------
       - name: Checkout repo
         uses: actions/checkout@v4
 
@@ -31,62 +28,66 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      # ------------------------
-      # Release Build
-      # ------------------------
-      - name: Build Android APK (Release)
-        id: build-release
-        run: |
-          set -o pipefail
-          echo "🔨 Building Release APK..."
-          flutter build apk --release 2>&1 | tee build-release-log.txt
-          echo "build_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
-
-      # ------------------------
-      # Debug Build
-      # ------------------------
+      # Debug build
       - name: Build Android APK (Debug)
-        id: build-debug
+        id: debug
         run: |
           set -o pipefail
           echo "🔨 Building Debug APK..."
-          flutter build apk --debug 2>&1 | tee build-debug-log.txt
-          echo "build_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          flutter build apk --debug 2>&1 | tee debug-log.txt
+          echo "debug_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ------------------------
-      # Upload APKs + Logs as Artifacts
-      # ------------------------
-      - name: Upload APKs and Logs
+      # Release build
+      - name: Build Android APK (Release)
+        id: release
+        run: |
+          set -o pipefail
+          echo "🔨 Building Release APK..."
+          flutter build apk --release 2>&1 | tee release-log.txt
+          echo "release_exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+
+      # Upload success APKs
+      - name: Upload APKs as artifacts
+        if: success()
         uses: actions/upload-artifact@v4
         with:
-          name: android-build-artifacts-${{ github.sha }}
+          name: android-apks-${{ github.sha }}
           path: |
-            build/app/outputs/flutter-apk/app-release.apk
             build/app/outputs/flutter-apk/app-debug.apk
-            build-release-log.txt
-            build-debug-log.txt
-          retention-days: 14
+            build/app/outputs/flutter-apk/app-release.apk
+          retention-days: 7
 
-      # ------------------------
-      # Create GitHub Issue (on Release build failure only)
-      # ------------------------
-      - name: Export Release Build Failure to GitHub Issue
-        if: failure() && steps.build-release.outcome == 'failure'
-        uses: peter-evans/create-issue-from-file@v5
+      # Upload logs if failure
+      - name: Upload logs as artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
         with:
-          title: "🚨 Android Release Build Failure - ${{ github.ref_name }} (${{ github.sha }})"
-          content-filepath: build-release-log.txt
-          labels: |
-            bug
-            ci-failure
-            android
-          assignees: ${{ github.actor }}
+          name: build-logs-${{ github.sha }}
+          path: |
+            debug-log.txt
+            release-log.txt
+          retention-days: 7
 
-      # ------------------------
-      # Close auto-generated issue if build succeeds
-      # ------------------------
-      - name: Close CI Failure Issues
-        if: success()
+      # Create issue if failure
+      - name: Create formatted issue body
+        if: failure()
+        run: |
+          cat > issue-body.md << 'EOF'
+          # 🚨 CI Build Failure Report
+          Branch: `${{ github.ref_name }}`
+          Commit: `${{ github.sha }}`
+          Workflow: ${{ github.workflow }}
+          Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+
+          ## Logs (last 30 lines)
+          ```
+          $(tail -30 debug-log.txt 2>/dev/null || echo "No debug log")
+          $(tail -30 release-log.txt 2>/dev/null || echo "No release log")
+          ```
+          EOF
+
+      - name: Close old CI failure issues
+        if: failure()
         uses: actions/github-script@v7
         with:
           script: |
@@ -94,18 +95,24 @@ jobs:
               owner: context.repo.owner,
               repo: context.repo.repo,
               state: 'open',
-              labels: 'ci-failure,android'
+              labels: 'ci-failure,auto-generated'
             });
-
             for (const issue of issues.data) {
-              if (issue.title.includes('Android Release Build Failure')) {
-                await github.rest.issues.update({
-                  owner: context.repo.owner,
-                  repo: context.repo.repo,
-                  issue_number: issue.number,
-                  state: 'closed',
-                  state_reason: 'completed'
-                });
-                console.log(`✅ Closed previous CI failure issue #${issue.number}`);
-              }
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed'
+              });
             }
+
+      - name: Create GitHub Issue
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "🚨 CI Build Failure - ${{ github.ref_name }} (${{ github.sha }})"
+          content-filepath: issue-body.md
+          labels: |
+            bug
+            ci-failure
+            auto-generated
