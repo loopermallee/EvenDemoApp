@@ -1,12 +1,10 @@
-name: Flutter CI with Diagnostics and Auto-Issue Export
+name: Flutter CI with APK + Auto-Issue Export
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
+    branches: [ main ]
 
 jobs:
   build-android:
@@ -27,21 +25,6 @@ jobs:
         with:
           flutter-version: '3.24.3'
 
-      - name: Flutter Doctor
-        run: flutter doctor -v
-
-      - name: Check Gradle & Java versions
-        run: |
-          ./gradlew --version || true
-          java -version
-          echo "Kotlin version:"
-          ./gradlew -q app:dependencies --configuration=classpath || true
-
-      - name: List Android SDKs
-        run: |
-          sdkmanager --list || true
-          ls -R $ANDROID_HOME || true
-
       - name: Install dependencies
         run: flutter pub get
 
@@ -50,6 +33,13 @@ jobs:
         run: |
           set -o pipefail
           flutter build apk --release 2>&1 | tee build-log.txt
+
+      - name: Upload APK artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: app-release-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload logs as artifact
         if: failure()
