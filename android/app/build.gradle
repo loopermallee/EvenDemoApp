@@ -1,26 +1,26 @@
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
 android {
     namespace "com.loopermallee.evendemoapp"
-    compileSdkVersion 34  // ✅ Pulled from root, explicit here too
+    compileSdk = 34
 
     defaultConfig {
         applicationId "com.loopermallee.evendemoapp"
-        minSdkVersion 23
-        targetSdkVersion 34
-        versionCode 1
-        versionName "1.0"
+        minSdk = 23
+        targetSdk = 34
+        versionCode = 1
+        versionName = "1.0"
 
         multiDexEnabled true
     }
 
     buildTypes {
         release {
-            // ✅ No debug signing needed in CI
+            // ✅ CI friendly – no signing required
             signingConfig null
             minifyEnabled false
             shrinkResources false
@@ -46,8 +46,6 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
-
-    // Needed for AndroidX + multidex support
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.10"
     implementation "androidx.multidex:multidex:2.0.1"
 }
