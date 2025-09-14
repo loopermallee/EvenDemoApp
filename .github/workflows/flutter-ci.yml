@@ -31,6 +31,7 @@ jobs:
       - name: Build APK
         run: |
           flutter clean
+          # Capture build logs to file
           flutter build apk --verbose 2>&1 | tee build_log.txt
 
       - name: Upload build log as artifact
