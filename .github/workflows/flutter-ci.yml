@@ -57,6 +57,28 @@ jobs:
             build/app/outputs/flutter-apk/app-release.apk
           retention-days: 7
 
+      # ✅ Auto-close CI failure issues on success
+      - name: Close old CI failure issues (on success)
+        if: success()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'ci-failure,auto-generated'
+            });
+            for (const issue of issues.data) {
+              await github.rest.issues.update({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issue.number,
+                state: 'closed',
+                comment: "✅ Build succeeded — closing this auto-generated failure report."
+              });
+            }
+
       # Upload logs if failure
       - name: Upload logs as artifacts
         if: failure()
@@ -86,7 +108,7 @@ jobs:
           ```
           EOF
 
-      - name: Close old CI failure issues
+      - name: Close old CI failure issues (before creating new one)
         if: failure()
         uses: actions/github-script@v7
         with:
