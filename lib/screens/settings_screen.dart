@@ -6,12 +6,16 @@ class SettingsScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Settings")),
-      body: const Center(
-        child: Text(
-          "⚙️ Settings Coming Soon...",
-          style: TextStyle(fontSize: 12),
-        ),
+      appBar: AppBar(title: const Text("⚙ SETTINGS")),
+      body: ListView(
+        children: const [
+          ListTile(
+            title: Text("Option 1"),
+          ),
+          ListTile(
+            title: Text("Option 2"),
+          ),
+        ],
       ),
     );
   }
