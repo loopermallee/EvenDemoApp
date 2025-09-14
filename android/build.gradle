@@ -32,3 +32,22 @@ subprojects {
 tasks.register("clean", Delete) {
     delete rootProject.buildDir
 }
+
+// ✅ Patch for AGP 8.x plugin compatibility (fixes flutter_blue_plus and others)
+subprojects {
+    afterEvaluate { project ->
+        if (project.hasProperty("android")) {
+            project.android {
+                // Ensure all modules use same SDK versions
+                compileSdkVersion 34
+                defaultConfig {
+                    minSdkVersion 23
+                }
+                // Namespace required for AGP 8.x
+                if (!namespace) {
+                    namespace project.name
+                }
+            }
+        }
+    }
+}
