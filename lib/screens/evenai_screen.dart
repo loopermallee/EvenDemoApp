@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import '../services/chatgpt_service.dart';
 
 class EvenAIScreen extends StatefulWidget {
   const EvenAIScreen({super.key});
@@ -11,22 +12,21 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
   final TextEditingController _controller = TextEditingController();
   String response = "";
 
-  void sendQuery() {
+  Future<void> sendQuery() async {
     final query = _controller.text.trim();
     if (query.isEmpty) return;
 
     setState(() => response = "🤖 Thinking...");
 
-    // TODO: connect to real evenai_service.dart
-    Future.delayed(const Duration(seconds: 2), () {
-      setState(() {
-        response = "AI says: 'Hello from EvenAI (mock response)!'";
-      });
-    });
+    final reply = await ChatGPTService.askChatGPT(query);
+
+    setState(() => response = reply);
   }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       appBar: AppBar(title: const Text("🤖 EVEN AI")),
       body: Padding(
@@ -35,8 +35,9 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
           children: [
             TextField(
               controller: _controller,
+              style: theme.textTheme.bodyLarge,
               decoration: const InputDecoration(
-                hintText: "ASK ME ANYTHING...",
+                hintText: "Ask me anything...",
               ),
             ),
             const SizedBox(height: 12),
@@ -47,7 +48,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
-                child: Text(response),
+                child: Text(response, style: theme.textTheme.bodyLarge),
               ),
             ),
           ],
