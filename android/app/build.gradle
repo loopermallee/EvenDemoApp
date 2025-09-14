@@ -14,13 +14,11 @@ android {
         targetSdk = 34
         versionCode = 1
         versionName = "1.0"
-
         multiDexEnabled true
     }
 
     buildTypes {
         release {
-            // ✅ CI friendly – no signing required
             signingConfig null
             minifyEnabled false
             shrinkResources false
