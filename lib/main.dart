@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'screens/loading_screen.dart';
 import 'screens/home_screen.dart';
 import 'screens/ble_screen.dart';
 import 'screens/evenai_screen.dart';
@@ -95,8 +96,9 @@ class EvenDemoApp extends StatelessWidget {
           ),
         ),
       ),
-      home: const HomeScreen(),
+      home: const LoadingScreen(), // ✅ Start with retro loading boot
       routes: {
+        '/home': (context) => const HomeScreen(),
         '/ble': (context) => const BLESScreen(),
         '/evenai': (context) => const EvenAIScreen(),
         '/settings': (context) => const SettingsScreen(),
