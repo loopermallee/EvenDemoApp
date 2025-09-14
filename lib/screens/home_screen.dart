@@ -1,4 +1,3 @@
-// lib/screens/home_screen.dart
 import 'package:flutter/material.dart';
 
 class HomeScreen extends StatelessWidget {
@@ -6,42 +5,30 @@ class HomeScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
       appBar: AppBar(
-        title: const Text("EVEN DEMO APP"), // Retro style: UPPERCASE
+        title: const Text("EVEN DEMO APP"),
         centerTitle: true,
       ),
       body: Container(
         width: double.infinity,
         padding: const EdgeInsets.all(24),
-        color: Colors.black, // ✅ enforce monochrome black bg
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/ble'),
-              child: Text(
-                "🔍 BLUETOOTH SCANNER",
-                style: theme.textTheme.bodyMedium,
-              ),
+              child: const Text("🔍 BLUETOOTH SCANNER"),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/evenai'),
-              child: Text(
-                "🤖 EVENAI",
-                style: theme.textTheme.bodyMedium,
-              ),
+              child: const Text("🤖 EVEN AI"),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 16),
             ElevatedButton(
               onPressed: () => Navigator.pushNamed(context, '/settings'),
-              child: Text(
-                "⚙️ SETTINGS",
-                style: theme.textTheme.bodyMedium,
-              ),
+              child: const Text("⚙ SETTINGS"),
             ),
           ],
         ),
