@@ -8,7 +8,71 @@ on:
 
 jobs:
   build-android:
+    runs-on: ubuntu-name: Flutter CI with Diagnostics and Auto-Issue Export
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-android:
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.3'
+
+      - name: Flutter Doctor
+        run: flutter doctor -v
+
+      - name: Check Gradle & Java versions
+        run: |
+          ./gradlew --version || true
+          java -version
+          echo "Kotlin version:"
+          ./gradlew -q dependencies app:dependencies --configuration=classpath || true
+
+      - name: List Android SDKs
+        run: |
+          sdkmanager --list || true
+          ls -R $ANDROID_HOME || true
+
+      - name: Install dependencies
+        run: flutter pub get
+
+      - name: Build Android APK
+        id: build
+        run: |
+          set -o pipefail
+          flutter build apk --release 2>&1 | tee build-log.txt
+
+      - name: Upload logs as artifact
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build-log.txt
+
+      - name: Export build failure to GitHub Issue
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v4
+        with:
+          title: "CI Build Failure"
+          content-filepath: build-log.txt
+          labels: bug, ci-failure
 
     steps:
       - name: Checkout repo
