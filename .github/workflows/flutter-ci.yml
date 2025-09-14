@@ -1,4 +1,4 @@
-name: Flutter CI with APK + Auto-Issue Export
+name: Flutter CI (Release Build with Auto-Issue Export)
 
 on:
   push:
@@ -28,18 +28,11 @@ jobs:
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Build Android APK
+      - name: Build Android Release APK
         id: build
         run: |
           set -o pipefail
           flutter build apk --release 2>&1 | tee build-log.txt
-
-      - name: Upload APK artifact
-        if: success()
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release-apk
-          path: build/app/outputs/flutter-apk/app-release.apk
 
       - name: Upload logs as artifact
         if: failure()
@@ -52,6 +45,18 @@ jobs:
         if: failure()
         uses: peter-evans/create-issue-from-file@v4
         with:
-          title: "CI Build Failure"
+          title: "CI Build Failure: Android Release"
           content-filepath: build-log.txt
           labels: bug, ci-failure
+          assignees: loopermallee
+
+      - name: Append environment details to issue
+        if: failure()
+        run: |
+          {
+            echo "### Environment Info"
+            echo "- Flutter: $(flutter --version)"
+            echo "- Java: $(java -version 2>&1 | head -n 1)"
+            echo "- Gradle: $(./gradlew --version | head -n 3)"
+            echo "- OS: $(uname -a)"
+          } >> build-log.txt
