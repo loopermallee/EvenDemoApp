@@ -1,17 +1,17 @@
-name: Flutter CI (Android) with Auto-Issue Export
+name: Flutter CI with Auto-Issue Export
 
 on:
   push:
-    branches: [ "main" ]
+    branches: [ main ]
   pull_request:
-    branches: [ "main" ]
+    branches: [ main ]
 
 jobs:
   build-android:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repository
+      - name: Checkout repo
         uses: actions/checkout@v4
 
       - name: Set up Java
@@ -23,44 +23,28 @@ jobs:
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: "3.24.3"
+          flutter-version: '3.24.3'
 
       - name: Install dependencies
         run: flutter pub get
 
-      - name: Run flutter doctor
-        run: flutter doctor -v > flutter_doctor.txt
-
-      - name: Build APK (capture logs)
+      - name: Build Android APK
+        id: build
         run: |
-          flutter build apk --release 2>&1 | tee build_log.txt
+          set -o pipefail
+          flutter build apk --release 2>&1 | tee build-log.txt
 
-      - name: Upload artifacts (APK + logs)
+      - name: Upload logs as artifact
+        if: failure()
         uses: actions/upload-artifact@v4
         with:
-          name: flutter-build
-          path: |
-            build/app/outputs/flutter-apk/*.apk
-            flutter_doctor.txt
-            build_log.txt
+          name: build-logs
+          path: build-log.txt
 
-      - name: Export logs on failure
+      - name: Export build failure to GitHub Issue
         if: failure()
-        run: |
-          echo "### Flutter Build Failed 🚨" > issue.md
-          echo "" >> issue.md
-          echo "Commit: $GITHUB_SHA" >> issue.md
-          echo "" >> issue.md
-          echo "#### Flutter Doctor" >> issue.md
-          cat flutter_doctor.txt >> issue.md || echo "No doctor log" >> issue.md
-          echo "" >> issue.md
-          echo "#### Full Build Log" >> issue.md
-          cat build_log.txt >> issue.md || echo "No build log"
-
-      - name: Create GitHub Issue on failure
-        if: failure()
-        uses: peter-evans/create-issue-from-file@v5
+        uses: peter-evans/create-issue-from-file@v4
         with:
-          title: "Flutter CI Build Failure 🚨"
-          content-filepath: issue.md
-          labels: bug, ci, android
+          title: "CI Build Failure"
+          content-filepath: build-log.txt
+          labels: bug, ci-failure
