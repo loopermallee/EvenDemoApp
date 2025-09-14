@@ -25,15 +25,16 @@ jobs:
         with:
           flutter-version: '3.24.3'
 
-      # ✅ Cache based on pubspec.yaml (no need for pubspec.lock)
+      # ✅ Cache based on pubspec.yaml (v2 key to force refresh if deps change)
       - name: Cache Flutter dependencies
-        uses: actions/cache@v3
+        uses: actions/cache@v4
         with:
           path: |
             ~/.pub-cache
             .dart_tool
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}
-          restore-keys: ${{ runner.os }}-pub-
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}-v2
+          restore-keys: |
+            ${{ runner.os }}-pub-
 
       - name: Install dependencies
         run: flutter pub get --no-precompile
@@ -106,7 +107,7 @@ jobs:
             ci-failure
             auto-generated
 
-      # ✅ Auto-close only resolved issues
+      # ✅ Auto-close only resolved issues (don’t delete unresolved ones)
       - name: Auto-close resolved CI failure issues
         if: success()
         uses: actions/github-script@v7
