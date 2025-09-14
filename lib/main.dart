@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import 'screens/loading_screen.dart';
+import 'screens/ble_screen.dart';
+import 'screens/evenai_screen.dart';
 
 void main() {
   runApp(const EvenDemoApp());
@@ -17,43 +18,86 @@ class EvenDemoApp extends StatelessWidget {
         brightness: Brightness.dark,
         scaffoldBackgroundColor: Colors.black,
         primaryColor: Colors.greenAccent,
-        fontFamily: 'PixelFont', // MUST match pubspec.yaml
+        fontFamily: 'PixelFont', // ✅ matches pubspec.yaml
         textTheme: const TextTheme(
-          bodyLarge: TextStyle(color: Colors.greenAccent, fontSize: 14, fontFamily: 'PixelFont'),
-          bodyMedium: TextStyle(color: Colors.greenAccent, fontSize: 12, fontFamily: 'PixelFont'),
-          bodySmall: TextStyle(color: Colors.greenAccent, fontSize: 10, fontFamily: 'PixelFont'),
+          bodyLarge: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 14,
+            fontFamily: 'PixelFont',
+          ),
+          bodyMedium: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 12,
+            fontFamily: 'PixelFont',
+          ),
+          bodySmall: TextStyle(
+            color: Colors.greenAccent,
+            fontSize: 10,
+            fontFamily: 'PixelFont',
+          ),
         ),
         appBarTheme: const AppBarTheme(
           backgroundColor: Colors.black,
           foregroundColor: Colors.greenAccent,
           elevation: 0,
-          titleTextStyle: TextStyle(fontFamily: 'PixelFont', fontSize: 14, color: Colors.greenAccent),
+          titleTextStyle: TextStyle(
+            fontFamily: 'PixelFont',
+            fontSize: 14,
+            color: Colors.greenAccent,
+          ),
         ),
         snackBarTheme: const SnackBarThemeData(
           backgroundColor: Colors.black,
-          contentTextStyle: TextStyle(color: Colors.greenAccent, fontFamily: 'PixelFont'),
+          contentTextStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PixelFont',
+          ),
         ),
         dialogTheme: const DialogTheme(
           backgroundColor: Colors.black,
-          titleTextStyle: TextStyle(color: Colors.greenAccent, fontFamily: 'PixelFont', fontSize: 14),
-          contentTextStyle: TextStyle(color: Colors.greenAccent, fontFamily: 'PixelFont', fontSize: 12),
+          titleTextStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PixelFont',
+            fontSize: 14,
+          ),
+          contentTextStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PixelFont',
+            fontSize: 12,
+          ),
         ),
         elevatedButtonTheme: ElevatedButtonThemeData(
           style: ElevatedButton.styleFrom(
             backgroundColor: Colors.black,
             foregroundColor: Colors.greenAccent,
-            textStyle: const TextStyle(fontFamily: 'PixelFont', fontSize: 12),
+            textStyle: const TextStyle(
+              fontFamily: 'PixelFont',
+              fontSize: 12,
+            ),
             side: const BorderSide(color: Colors.greenAccent, width: 1),
-            shape: RoundedRectangleBorder(borderRadius: BorderRadius.zero),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.zero,
+            ),
           ),
         ),
         inputDecorationTheme: const InputDecorationTheme(
-          labelStyle: TextStyle(color: Colors.greenAccent, fontFamily: 'PixelFont'),
-          enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.greenAccent)),
-          focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: Colors.greenAccent, width: 2)),
+          labelStyle: TextStyle(
+            color: Colors.greenAccent,
+            fontFamily: 'PixelFont',
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.greenAccent),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderSide: BorderSide(color: Colors.greenAccent, width: 2),
+          ),
         ),
       ),
-      home: const LoadingScreen(),
+      home: const BLESScreen(), // ✅ Start from BLE screen
+      routes: {
+        '/ble': (context) => const BLESScreen(),
+        '/evenai': (context) => const EvenAIScreen(),
+      },
     );
   }
 }
