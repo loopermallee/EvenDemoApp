@@ -1,0 +1,61 @@
+name: Export Errors
+
+on:
+  workflow_run:
+    workflows: ["8_Build APK with overridden settings"] # must match your build workflow name
+    types:
+      - completed
+
+jobs:
+  handle-errors:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repo (needed for issue automation)
+        uses: actions/checkout@v4
+
+      - name: If build failed - download logs
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        uses: dawidd6/action-download-artifact@v2
+        with:
+          workflow: "8_Build APK with overridden settings"
+          run_id: ${{ github.event.workflow_run.id }}
+          path: logs
+
+      - name: If build failed - collect logs into single file
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        run: |
+          echo "### ❌ Build Failure Logs for Run ${{ github.event.workflow_run.id }}" > all-logs.txt
+          echo "" >> all-logs.txt
+          echo "**Commit**: ${{ github.event.workflow_run.head_commit.id }}" >> all-logs.txt
+          echo "**Message**: ${{ github.event.workflow_run.head_commit.message }}" >> all-logs.txt
+          echo "**Actor**: ${{ github.event.workflow_run.actor.login }}" >> all-logs.txt
+          echo "" >> all-logs.txt
+          echo "--- FULL LOGS ---" >> all-logs.txt
+          find logs -type f -exec echo "==== {} ====" \; -exec cat {} \; >> all-logs.txt
+
+      - name: Upload combined log file
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: failed-build-logs
+          path: all-logs.txt
+
+      - name: Create or update issue for failed build
+        if: ${{ github.event.workflow_run.conclusion == 'failure' }}
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "❌ Build Failed - Run ${{ github.event.workflow_run.id }}"
+          content-filepath: ./all-logs.txt
+          labels: failure, ci, needs-troubleshooting
+          update-existing: true
+
+      - name: Close open failure issues if build succeeded
+        if: ${{ github.event.workflow_run.conclusion == 'success' }}
+        uses: peter-evans/close-issue@v3
+        with:
+          issue-number: auto
+          comment: |
+            ✅ Build succeeded for run ${{ github.event.workflow_run.id }}.
+            Closing related failure issue automatically.
+          labels: fixed
