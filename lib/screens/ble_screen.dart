@@ -1,17 +1,36 @@
 import 'package:flutter/material.dart';
 
-class BleScreen extends StatelessWidget {
-  const BleScreen({super.key});
+class BLESScreen extends StatefulWidget {
+  const BLESScreen({super.key});
+
+  @override
+  State<BLESScreen> createState() => _BLESScreenState();
+}
+
+class _BLESScreenState extends State<BLESScreen> {
+  List<String> devices = ["Device_A", "Device_B"]; // Mock list
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
-      appBar: AppBar(title: const Text("BLE Manager")),
-      body: const Center(
-        child: Text(
-          "📡 BLE Features Coming Soon...",
-          style: TextStyle(fontSize: 12),
-        ),
+      appBar: AppBar(title: const Text("BLUETOOTH SCAN")),
+      body: ListView.builder(
+        itemCount: devices.length,
+        itemBuilder: (context, index) {
+          return ListTile(
+            title: Text(devices[index], style: theme.textTheme.bodyLarge),
+            trailing: ElevatedButton(
+              onPressed: () {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text("Connected to ${devices[index]}")),
+                );
+              },
+              child: const Text("CONNECT"),
+            ),
+          );
+        },
       ),
     );
   }
