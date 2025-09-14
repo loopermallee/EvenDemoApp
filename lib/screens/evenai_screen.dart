@@ -17,7 +17,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
 
     setState(() => response = "🤖 Thinking...");
 
-    // TODO: integrate with real evenai_service
+    // TODO: connect to real evenai_service.dart
     Future.delayed(const Duration(seconds: 2), () {
       setState(() {
         response = "AI says: 'Hello from EvenAI (mock response)!'";
@@ -27,33 +27,16 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("🤖 EVEN AI"),
-        centerTitle: true,
-      ),
-      body: Container(
-        color: Colors.black,
+      appBar: AppBar(title: const Text("🤖 EVEN AI")),
+      body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             TextField(
               controller: _controller,
-              style: theme.textTheme.bodyLarge,
-              cursorColor: Colors.greenAccent,
-              decoration: InputDecoration(
-                hintText: "Ask me anything...",
-                hintStyle: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.green.shade700,
-                ),
-                enabledBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.greenAccent.shade400),
-                ),
-                focusedBorder: OutlineInputBorder(
-                  borderSide: BorderSide(color: Colors.greenAccent.shade200, width: 2),
-                ),
+              decoration: const InputDecoration(
+                hintText: "ASK ME ANYTHING...",
               ),
             ),
             const SizedBox(height: 12),
@@ -64,18 +47,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             const SizedBox(height: 24),
             Expanded(
               child: SingleChildScrollView(
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    border: Border.all(color: Colors.greenAccent, width: 1),
-                    color: Colors.black,
-                  ),
-                  child: Text(
-                    response,
-                    style: theme.textTheme.bodyLarge,
-                  ),
-                ),
+                child: Text(response),
               ),
             ),
           ],
