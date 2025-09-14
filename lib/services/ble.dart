@@ -1,86 +1,63 @@
-import 'dart:typed_data';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
-/// =========================
-/// Data Model for BLE Packets
-/// =========================
-class BleReceive {
-  String lr = "";
-  Uint8List data = Uint8List(0);
-  String type = "";
-  bool isTimeout = false;
- 
-  int getCmd() {
-    return data[0].toInt();
-  }
-
-  BleReceive();
-
-  static BleReceive fromMap(Map map) {
-    var ret = BleReceive();
-    ret.lr = map["lr"];
-    ret.data = map["data"];
-    ret.type = map["type"];
-    return ret;
-  }
-
-  String hexStringData() {
-    return data.map((e) => e.toRadixString(16).padLeft(2, '0')).join(' ');
-  }
-}
-
-/// Enum for BLE Events
-enum BleEvent {
-  exitFunc,
-  nextPageForEvenAI,
-  upHeader,
-  downHeader,
-  glassesConnectSuccess, // 17 Bluetooth binding successful
-  evenaiStart,           // 23 Notify the phone to start Even AI
-  evenaiRecordOver,      // 24 Even AI recording ends
-}
-
-/// =========================
-/// BLE Manager Service
-/// =========================
 class BLEService {
-  final FlutterBluePlus _flutterBlue = FlutterBluePlus.instance;
+  BluetoothDevice? connectedDevice;
 
   /// Scan for nearby Bluetooth devices
   Future<List<BluetoothDevice>> scanForDevices() async {
     List<BluetoothDevice> devices = [];
+    FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
 
-    _flutterBlue.startScan(timeout: const Duration(seconds: 5));
+    await flutterBlue.startScan(timeout: const Duration(seconds: 4));
+    await for (var results in flutterBlue.scanResults.first) {
+      devices.addAll(results.map((r) => r.device));
+    }
+    await flutterBlue.stopScan();
 
-    _flutterBlue.scanResults.listen((results) {
-      for (ScanResult r in results) {
-        if (!devices.contains(r.device)) {
-          devices.add(r.device);
-        }
-      }
-    });
+    // Remove duplicates by device ID
+    final uniqueDevices = {
+      for (var d in devices) d.id: d,
+    }.values.toList();
 
-    await Future.delayed(const Duration(seconds: 6));
-    _flutterBlue.stopScan();
-
-    return devices;
+    return uniqueDevices;
   }
 
-  /// Connect to a device
+  /// Connect to a Bluetooth device
   Future<void> connectToDevice(BluetoothDevice device) async {
-    try {
-      await device.connect();
-    } catch (e) {
-      if (e.toString().contains("already connected")) {
-        // Ignore duplicate connection
-      } else {
-        rethrow;
+    await device.connect(autoConnect: true);
+    connectedDevice = device;
+
+    // Save device ID for future auto-reconnect
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('last_connected_device', device.id.id);
+  }
+
+  /// Disconnect from current device
+  Future<void> disconnectFromDevice(BluetoothDevice device) async {
+    await device.disconnect();
+    connectedDevice = null;
+
+    // Remove saved device ID
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove('last_connected_device');
+  }
+
+  /// Try to reconnect to the last saved device
+  Future<BluetoothDevice?> reconnectLastDevice() async {
+    final prefs = await SharedPreferences.getInstance();
+    final deviceId = prefs.getString('last_connected_device');
+
+    if (deviceId != null) {
+      try {
+        final device = BluetoothDevice.fromId(deviceId);
+        await device.connect(autoConnect: true);
+        connectedDevice = device;
+        return device;
+      } catch (_) {
+        return null;
       }
     }
-  }
-
-  /// Disconnect from a device
-  Future<void> disconnectDevice(BluetoothDevice device) async {
-    await device.disconnect();
+    return null;
   }
 }
