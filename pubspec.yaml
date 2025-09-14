@@ -16,10 +16,10 @@ dependencies:
   get: ^4.6.6
   crclib: ^3.0.0
   fluttertoast: ^8.2.8
-  flutter_blue_plus: ^1.36.6   # ✅ Updated Bluetooth support
 
-dependency_overrides:
-  flutter_blue_plus: ^1.36.6   # ✅ Force correct version across all deps
+  # ✅ Use patched local version of flutter_blue_plus
+  flutter_blue_plus:
+    path: patches/flutter_blue_plus
 
 dev_dependencies:
   flutter_test:
