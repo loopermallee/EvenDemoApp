@@ -8,7 +8,7 @@ import 'teleprompt_screen.dart';
 import 'ai_screen.dart';
 import 'transcribe_screen.dart';
 import 'todo_screen.dart';
-import 'bus_screen.dart';
+import 'commute_screen.dart';
 import 'notifications_screen.dart';
 
 class DashboardScreen extends StatefulWidget {
@@ -26,7 +26,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     "AI",
     "Transcribe",
     "To-Do",
-    "Bus Timings",
+    "Commute",
     "Notifications"
   ];
 
@@ -85,8 +85,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case "To-Do":
         Navigator.push(context, MaterialPageRoute(builder: (_) => const ToDoScreen()));
         break;
-      case "Bus Timings":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const BusScreen()));
+      case "Commute":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const CommuteScreen()));
         break;
       case "Notifications":
         Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
@@ -104,7 +104,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           border: Border.all(color: Colors.greenAccent, width: 2),
           color: Colors.black,
         ),
-        child: Text(tile, style: theme.textTheme.bodyLarge),
+        child: Text(
+          tile,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            fontFamily: "PixelFont",
+            color: Colors.greenAccent,
+          ),
+        ),
       ),
     );
   }
@@ -114,7 +120,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("📟 DASHBOARD")),
+      appBar: AppBar(
+        title: const Text("📟 DASHBOARD"),
+        backgroundColor: Colors.black,
+      ),
+      backgroundColor: Colors.black,
       body: Column(
         children: [
           // Brightness control
@@ -124,7 +134,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Text(
                   "☀ BRIGHTNESS",
-                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    fontFamily: "PixelFont",
+                    color: Colors.greenAccent,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
                 Slider(
                   min: 0,
@@ -141,7 +155,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // Tiles (reorderable)
+          // Tiles (reorderable & persistent)
           Expanded(
             child: ReorderableListView(
               padding: const EdgeInsets.all(16),
