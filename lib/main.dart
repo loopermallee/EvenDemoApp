@@ -1,11 +1,12 @@
+// lib/main.dart
 import 'package:flutter/material.dart';
+
+// ✅ Screens
 import 'screens/loading_screen.dart';
-import 'screens/dashboard_screen.dart'; // ✅ Dashboard
+import 'screens/dashboard_screen.dart';
 import 'screens/ble_screen.dart';
 import 'screens/evenai_screen.dart';
 import 'screens/settings_screen.dart';
-
-// ✅ Tiles
 import 'screens/translate_screen.dart';
 import 'screens/navigate_screen.dart';
 import 'screens/teleprompt_screen.dart';
@@ -15,10 +16,12 @@ import 'screens/todo_screen.dart';
 import 'screens/commute_screen.dart';
 import 'screens/notifications_screen.dart';
 
-// ✅ Import ChatGPT service
+// ✅ Services
 import 'services/chatgpt_service.dart';
+import 'services/notification_service.dart';
+import 'services/gesture_mapping.dart';
 
-// ✅ Import HUD overlay
+// ✅ HUD overlay
 import 'widgets/hud_overlay.dart';
 
 Future<void> main() async {
@@ -26,6 +29,12 @@ Future<void> main() async {
 
   // ✅ Load saved ChatGPT API key at startup
   await ChatGPTService.init();
+
+  // ✅ Initialize notification listener
+  NotificationService.init();
+
+  // ✅ Ensure gesture mappings exist (load or defaults)
+  await GestureMappingService.loadMapping();
 
   runApp(const EvenDemoApp());
 }
