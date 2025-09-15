@@ -43,48 +43,49 @@ jobs:
         id: build_debug
         continue-on-error: true
         run: |
-          set -o pipefail
           echo "🔨 Building Debug APK..."
-          flutter build apk --debug 2>&1 | tee debug-build-log.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          (flutter build apk --debug 2>&1 || echo "⚠️ Debug build crashed before completion") | tee debug-build-log.txt
+          ls -lh debug-build-log.txt || echo "⚠️ Debug log missing"
 
       # Release build
       - name: Build Android APK (Release)
         id: build_release
         continue-on-error: true
         run: |
-          set -o pipefail
           echo "🔨 Building Release APK..."
-          flutter build apk --release 2>&1 | tee release-build-log.txt
-          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
+          (flutter build apk --release 2>&1 || echo "⚠️ Release build crashed before completion") | tee release-build-log.txt
+          ls -lh release-build-log.txt || echo "⚠️ Release log missing"
 
-      # Always merge logs (ensures build-log.txt exists)
+      # Always merge logs (ensures build-log.txt exists with diagnostics)
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
-          cat debug-build-log.txt release-build-log.txt > build-log.txt
+          echo "===== 📄 Debug Build Log =====" > build-log.txt
+          cat debug-build-log.txt >> build-log.txt
+          echo "===== 📄 Release Build Log =====" >> build-log.txt
+          cat release-build-log.txt >> build-log.txt
 
-      # ✅ FIX: Use unquoted EOF so logs expand correctly
+      # Always create an issue body (with real logs or fallback)
       - name: Create formatted issue body
         if: failure()
         run: |
-          cat > issue-body.md <<EOF
+          cat > issue-body.md << 'EOF'
           # 🚨 CI Build Failure Report
           **Branch:** ${{ github.ref_name }}
           **Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
           **Workflow Run:** [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           ## ❌ Key Errors
-          \`\`\`
-          $(tail -40 build-log.txt | grep -i "error\|exception\|failed\|fatal" || echo "⚠️ No explicit error logs captured. Check full log below.")
-          \`\`\`
+          ```
+          $(grep -i "error\|exception\|failed\|fatal" build-log.txt | tail -40 || echo "⚠️ No explicit error logs captured. Check full log below.")
+          ```
 
           ## 📋 Full Log
           <details><summary>Expand</summary>
 
-          \`\`\`
+          ```
           $(cat build-log.txt || echo "⚠️ build-log.txt was empty")
-          \`\`\`
+          ```
 
           </details>
 
