@@ -141,4 +141,11 @@ class EvenDemoApp extends StatelessWidget {
         '/navigate': (context) => const NavigateScreen(),
         '/teleprompt': (context) => const TelepromptScreen(),
         '/ai': (context) => const AIScreen(),
-        '/transcribe': (context) => const Trans
+        '/transcribe': (context) => const TranscribeScreen(),
+        '/todo': (context) => const ToDoScreen(),
+        '/commute': (context) => const CommuteScreen(),
+        '/notifications': (context) => const NotificationsScreen(),
+      },
+    );
+  }
+}
