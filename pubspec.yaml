@@ -16,10 +16,7 @@ dependencies:
   get: ^4.6.6
   crclib: ^3.0.0
   fluttertoast: ^8.2.8
-
-  # ✅ Use patched local version of flutter_blue_plus
-  flutter_blue_plus:
-    path: patches/flutter_blue_plus
+  flutter_blue_plus: ^1.31.15   # ✅ Use official pub.dev version (no path override)
 
 dev_dependencies:
   flutter_test:
