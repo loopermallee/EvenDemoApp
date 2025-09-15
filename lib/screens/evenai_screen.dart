@@ -1,3 +1,4 @@
+// lib/screens/evenai_screen.dart
 import 'package:flutter/material.dart';
 import '../services/evenai_service.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -17,7 +18,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
 
   String response = "";
   bool isConnecting = false;
-  bool isListening = false; // ✅ indicate glasses mic active
+  bool isListening = false; // ✅ Glasses mic state
 
   Future<void> sendQuery() async {
     final query = _controller.text.trim();
@@ -34,22 +35,22 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
     }
   }
 
-  /// Called when mic stream from glasses starts
-  void onMicStart() {
+  /// ✅ Triggered when glasses mic starts
+  Future<void> startMic() async {
     setState(() {
       isListening = true;
       response = "🎤 Listening via glasses mic...";
     });
+    await _evenAI.startListening();
   }
 
-  /// Called when mic stream ends and transcription is ready
-  Future<void> onMicTranscript(String transcript) async {
+  /// ✅ Triggered when glasses mic stops
+  Future<void> stopMic() async {
     setState(() {
       isListening = false;
       response = "🤖 Thinking...";
     });
-
-    final reply = await _evenAI.sendQuery(transcript);
+    final reply = await _evenAI.stopAndSend();
 
     if (mounted) {
       setState(() => response = reply);
@@ -72,6 +73,19 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
       appBar: AppBar(
         title: const Text("🤖 EVEN AI"),
         centerTitle: true,
+        actions: [
+          // ✅ Mic control buttons (for testing until glasses auto-trigger is wired)
+          IconButton(
+            icon: const Icon(Icons.mic, color: Colors.greenAccent),
+            onPressed: startMic,
+            tooltip: "Start Listening",
+          ),
+          IconButton(
+            icon: const Icon(Icons.stop, color: Colors.redAccent),
+            onPressed: stopMic,
+            tooltip: "Stop & Send",
+          ),
+        ],
       ),
       body: Padding(
         padding: const EdgeInsets.all(16),
@@ -97,17 +111,20 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ✅ Show listening status
+            // ✅ Listening indicator
             if (isListening)
-              Text(
-                "🎤 Glasses mic active... speak now!",
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: Colors.greenAccent,
-                  fontStyle: FontStyle.italic,
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Text(
+                  "🎤 Glasses mic active... speak now!",
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: Colors.greenAccent,
+                    fontStyle: FontStyle.italic,
+                  ),
                 ),
               ),
 
-            // ✅ Query input (debug / fallback)
+            // ✅ Debug input field (manual queries)
             TextField(
               controller: _controller,
               style: theme.textTheme.bodyLarge,
@@ -125,7 +142,7 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ✅ AI Response (retro scrollable text)
+            // ✅ AI Response
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
