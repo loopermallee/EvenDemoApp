@@ -70,6 +70,7 @@ class EvenAI extends GetxController {
     _recordingTimer = Timer(Duration(seconds: maxRecordingDuration), () {
       if (isReceivingAudio.value) {
         clear();
+        GestureHandler.showHUD("⚠️ Mic timeout");
       } else {
         _recordingTimer?.cancel();
         _recordingTimer = null;
@@ -94,6 +95,7 @@ class EvenAI extends GetxController {
     if (transcript == null || transcript.isEmpty) {
       lastTranscript.value = "No Speech Recognized";
       isSyncing.value = false;
+      GestureHandler.showHUD("⚠️ No speech detected");
       startSendReply("No Speech Recognized");
       return;
     }
@@ -150,6 +152,7 @@ class EvenAI extends GetxController {
       await updateReplyToOSByTimer();
     } else {
       clear();
+      GestureHandler.showHUD("⚠️ Failed to send reply");
     }
   }
 
