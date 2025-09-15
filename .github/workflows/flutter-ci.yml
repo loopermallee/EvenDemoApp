@@ -31,12 +31,12 @@ jobs:
           path: |
             ~/.pub-cache
             .dart_tool
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}-v2
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}-v3
           restore-keys: |
             ${{ runner.os }}-pub-
 
       - name: Install dependencies
-        run: flutter pub get --no-precompile
+        run: flutter pub get
 
       # Debug build
       - name: Build Android APK (Debug)
@@ -58,30 +58,24 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # Always merge logs (ensures build-log.txt exists)
+      # Always merge logs
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
           cat debug-build-log.txt release-build-log.txt > build-log.txt
 
-      # Create issue body with proper variable expansion
+      # Always create an issue body (proper expansion)
       - name: Create formatted issue body
         if: failure()
-        env:
-          BRANCH: ${{ github.ref_name }}
-          COMMIT: ${{ github.sha }}
-          REPO: ${{ github.repository }}
-          RUN_ID: ${{ github.run_id }}
-          SERVER_URL: ${{ github.server_url }}
         run: |
           KEY_ERRORS=$(grep -i "error\|exception\|failed\|fatal" build-log.txt | tail -40 || echo "⚠️ No explicit error logs captured. Check full log below.")
           FULL_LOG=$(cat build-log.txt || echo "⚠️ build-log.txt was empty")
 
-          cat > issue-body.md <<EOF
+          cat > issue-body.md << EOF
           # 🚨 CI Build Failure Report
-          **Branch:** ${BRANCH}
-          **Commit:** [${COMMIT}](${SERVER_URL}/${REPO}/commit/${COMMIT})
-          **Workflow Run:** [View Logs](${SERVER_URL}/${REPO}/actions/runs/${RUN_ID})
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          **Workflow Run:** [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           ## ❌ Key Errors
           \`\`\`
