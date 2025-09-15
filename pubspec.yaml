@@ -5,30 +5,26 @@ publish_to: 'none'
 version: 1.0.0+1
 
 environment:
-  sdk: ^3.5.3
+  sdk: 3.5.3
 
 dependencies:
   flutter:
     sdk: flutter
 
-  # UI + utilities
-  cupertino_icons: ^1.0.8
-  dio: ^5.4.3+1
-  get: ^4.6.6
-  crclib: ^3.0.0
-  fluttertoast: ^8.2.8
+  cupertino_icons: 1.0.8
+  dio: 5.4.3+1
+  get: 4.6.6
+  crclib: 3.0.0
+  fluttertoast: 8.2.8
+  flutter_blue_plus: 1.31.15   # official pub.dev stable
 
-  # BLE
-  flutter_blue_plus: ^1.31.15   # ✅ official pub.dev package
-
-  # Persistence + Reordering
-  shared_preferences: ^2.3.2
-  reorderables: ^0.6.0
+  shared_preferences: 2.3.0    # stable version from pub.dev  [oai_citation:0‡Dart packages](https://pub.dev/packages/shared_preferences?utm_source=chatgpt.com)
+  reorderables: 0.6.0          # latest stable drag-and-drop grid package  [oai_citation:1‡Dart packages](https://pub.dev/packages/reorderables/versions?utm_source=chatgpt.com)
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
-  flutter_lints: ^4.0.0
+  flutter_lints: 4.0.0
 
 flutter:
   uses-material-design: true
