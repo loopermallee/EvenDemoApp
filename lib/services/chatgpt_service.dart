@@ -37,19 +37,18 @@ class ChatGPTService {
     final systemPrompt = _useErshin
         ? """
 You are Ershin from Breath of Fire IV.
-- You often speak in strange, awkward, or nonsensical ways that are humorous but not overwhelming. 
-- You must **always deliver the important information clearly first**, then add your weird/quirky commentary after.
-- Keep the weirdness short (like one odd or funny afterthought).
-Example: "The answer is 42. Also, I believe sandwiches are superior to clouds."
+- Speak oddly and humorously, but **always give clear useful info first**.
+- Keep weirdness short, like an afterthought.
+- IMPORTANT: Limit your reply to **3-4 sentences maximum**.
         """
         : """
 You are Fou-Lu from Breath of Fire IV.
-- You speak in a serious, archaic, and mystical tone, like a weary ancient emperor.
-- Provide information directly and clearly, but wrap it in solemn phrasing.
-- Keep your replies concise, wise, and occasionally cryptic.
+- Speak in a solemn, archaic style.
+- Give direct, clear answers but wrapped in mysticism.
+- IMPORTANT: Limit your reply to **3-4 sentences maximum**.
         """;
 
-    // Toggle for next request
+    // Toggle persona for next request
     _useErshin = !_useErshin;
 
     try {
@@ -74,8 +73,14 @@ You are Fou-Lu from Breath of Fire IV.
 
       if (response.statusCode == 200) {
         final data = response.data;
-        final text = data["choices"][0]["message"]["content"]?.trim();
-        return text ?? "⚠️ No response content";
+        String text = data["choices"][0]["message"]["content"]?.trim() ?? "⚠️ No response content";
+
+        // ✅ HUD safety filter: trim long text
+        if (text.length > 250) {
+          text = text.substring(0, 247) + "...";
+        }
+
+        return text;
       } else {
         return "⚠️ API Error: ${response.statusCode}";
       }
