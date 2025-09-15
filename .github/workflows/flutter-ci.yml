@@ -25,22 +25,6 @@ jobs:
         with:
           flutter-version: '3.24.3'
 
-      # ✅ Install Android SDK CLI tools (fixes sdkmanager not found)
-      - name: Install Android SDK Command-line Tools
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y wget unzip
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip -O cmdline-tools.zip
-          mkdir -p $ANDROID_HOME/cmdline-tools
-          unzip -q cmdline-tools.zip -d $ANDROID_HOME/cmdline-tools
-          mv $ANDROID_HOME/cmdline-tools/cmdline-tools $ANDROID_HOME/cmdline-tools/latest
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses
-
-      # ✅ Install platform + build tools
-      - name: Install Android Platform + Build Tools
-        run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "platforms;android-34" "build-tools;34.0.0"
-
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -74,33 +58,33 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ✅ Always merge logs (ensures build-log.txt exists even if only one build ran)
+      # Always merge logs (ensures build-log.txt exists)
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
           cat debug-build-log.txt release-build-log.txt > build-log.txt
 
-      # ✅ Always create issue body (never empty)
+      # ✅ FIX: Use unquoted EOF so logs expand correctly
       - name: Create formatted issue body
         if: failure()
         run: |
-          cat > issue-body.md << 'EOF'
+          cat > issue-body.md <<EOF
           # 🚨 CI Build Failure Report
           **Branch:** ${{ github.ref_name }}
           **Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
           **Workflow Run:** [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
 
           ## ❌ Key Errors
-          ```
+          \`\`\`
           $(tail -40 build-log.txt | grep -i "error\|exception\|failed\|fatal" || echo "⚠️ No explicit error logs captured. Check full log below.")
-          ```
+          \`\`\`
 
           ## 📋 Full Log
           <details><summary>Expand</summary>
 
-          ```
+          \`\`\`
           $(cat build-log.txt || echo "⚠️ build-log.txt was empty")
-          ```
+          \`\`\`
 
           </details>
 
