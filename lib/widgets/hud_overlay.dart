@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import '../services/gesture_handler.dart';
 
 /// Retro HUD overlay with multi-page support + auto page advance.
-/// - Shows current page text
-/// - Advances automatically after 5s (reset if user taps manually)
-/// - Displays (1/3) page indicator and countdown [5s]
+/// - Pages auto-advance dynamically (3–6s depending on text length)
+/// - User can tap left/right to flip manually
+/// - Clears automatically after last page
 class HUDOverlay extends StatefulWidget {
   const HUDOverlay({super.key});
 
@@ -25,7 +25,17 @@ class _HUDOverlayState extends State<HUDOverlay> {
 
   void _startAutoAdvance() {
     _cancelTimer();
-    _remainingSeconds = 5;
+
+    // ⏳ Adjust countdown based on text length
+    final text = GestureHandler.currentPage ?? "";
+    if (text.length < 60) {
+      _remainingSeconds = 3; // short message
+    } else if (text.length < 150) {
+      _remainingSeconds = 4; // medium
+    } else {
+      _remainingSeconds = 6; // long message
+    }
+
     _autoPageTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (!mounted) return;
       setState(() {
@@ -33,7 +43,9 @@ class _HUDOverlayState extends State<HUDOverlay> {
       });
       if (_remainingSeconds <= 0) {
         GestureHandler.nextPage();
-        _startAutoAdvance(); // restart for next page
+        if (GestureHandler.isHUDActive) {
+          _startAutoAdvance(); // restart for next page
+        }
       }
     });
   }
@@ -41,6 +53,18 @@ class _HUDOverlayState extends State<HUDOverlay> {
   void _cancelTimer() {
     _autoPageTimer?.cancel();
     _autoPageTimer = null;
+  }
+
+  void _onTapLeft() {
+    GestureHandler.prevPage();
+    _startAutoAdvance();
+  }
+
+  void _onTapRight() {
+    GestureHandler.nextPage();
+    if (GestureHandler.isHUDActive) {
+      _startAutoAdvance();
+    }
   }
 
   @override
@@ -55,7 +79,6 @@ class _HUDOverlayState extends State<HUDOverlay> {
           return const SizedBox.shrink();
         }
 
-        // Start/restart timer whenever new pages appear
         if (_autoPageTimer == null) {
           _startAutoAdvance();
         }
@@ -64,50 +87,61 @@ class _HUDOverlayState extends State<HUDOverlay> {
         final pageIndicator = GestureHandler.pageIndicator();
 
         return Positioned.fill(
-          child: Container(
-            color: Colors.black.withOpacity(0.7),
-            alignment: Alignment.center,
-            padding: const EdgeInsets.all(24),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Main text
-                Expanded(
-                  child: SingleChildScrollView(
-                    child: Text(
-                      currentText,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyLarge?.copyWith(
-                        fontSize: 18,
-                        color: Colors.greenAccent,
-                        fontWeight: FontWeight.bold,
-                        letterSpacing: 1,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTapUp: (details) {
+              final width = MediaQuery.of(context).size.width;
+              if (details.localPosition.dx < width / 2) {
+                _onTapLeft();
+              } else {
+                _onTapRight();
+              }
+            },
+            child: Container(
+              color: Colors.black.withOpacity(0.7),
+              alignment: Alignment.center,
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Text page
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Text(
+                        currentText,
+                        textAlign: TextAlign.center,
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          fontSize: 18,
+                          color: Colors.greenAccent,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 1,
+                        ),
                       ),
                     ),
                   ),
-                ),
 
-                const SizedBox(height: 12),
+                  const SizedBox(height: 12),
 
-                // Footer: page indicator + countdown
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      pageIndicator, // e.g. (1/3)
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.greenAccent,
+                  // Footer: page indicator + countdown
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(
+                        pageIndicator, // e.g. (1/3)
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.greenAccent,
+                        ),
                       ),
-                    ),
-                    Text(
-                      "[${_remainingSeconds}s]", // countdown timer
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: Colors.greenAccent.withOpacity(0.8),
+                      Text(
+                        "[${_remainingSeconds}s]",
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: Colors.greenAccent.withOpacity(0.8),
+                        ),
                       ),
-                    ),
-                  ],
-                ),
-              ],
+                    ],
+                  ),
+                ],
+              ),
             ),
           ),
         );
