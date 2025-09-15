@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
-import '../services/evenai_service.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import '../services/chatgpt_service.dart';
 
 class SettingsScreen extends StatefulWidget {
   const SettingsScreen({super.key});
@@ -11,8 +12,30 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
 
-  void _saveApiKey() {
-    EvenAIService().setApiKey(_apiKeyController.text);
+  @override
+  void initState() {
+    super.initState();
+    _loadApiKey();
+  }
+
+  Future<void> _loadApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    final savedKey = prefs.getString("chatgpt_api_key") ?? "";
+    setState(() {
+      _apiKeyController.text = savedKey;
+    });
+    ChatGPTService.apiKey = savedKey; // restore into service
+  }
+
+  Future<void> _saveApiKey() async {
+    final apiKey = _apiKeyController.text.trim();
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("chatgpt_api_key", apiKey);
+
+    setState(() {
+      ChatGPTService.apiKey = apiKey; // inject into service
+    });
+
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("✅ API Key saved")),
     );
