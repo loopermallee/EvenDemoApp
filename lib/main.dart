@@ -8,6 +8,9 @@ import 'screens/settings_screen.dart';
 // ✅ Import ChatGPT service
 import 'services/chatgpt_service.dart';
 
+// ✅ Import HUD overlay
+import 'widgets/hud_overlay.dart';
+
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
@@ -104,6 +107,15 @@ class EvenDemoApp extends StatelessWidget {
           ),
         ),
       ),
+      builder: (context, child) {
+        // ✅ Global overlay: show HUD on top of any screen
+        return Stack(
+          children: [
+            child ?? const SizedBox.shrink(),
+            const HUDOverlay(),
+          ],
+        );
+      },
       home: const LoadingScreen(), // ✅ Start with retro loading boot
       routes: {
         '/home': (context) => const HomeScreen(),
