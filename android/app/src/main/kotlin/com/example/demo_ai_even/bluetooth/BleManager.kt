@@ -7,16 +7,14 @@ import android.content.Context
 import android.os.Build
 import android.util.Log
 import android.widget.Toast
-import com.example.demo_ai_even.cpp.Cpp
 import com.example.demo_ai_even.model.BleDevice
 import com.example.demo_ai_even.model.BlePairDevice
 import com.example.demo_ai_even.utils.ByteUtil
+import io.flutter.plugin.common.EventChannel
 import io.flutter.plugin.common.MethodChannel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.MainScope
-import kotlinx.coroutines.launch
 import java.lang.ref.WeakReference
-import java.util.*
 
 @SuppressLint("MissingPermission")
 class BleManager private constructor() {
@@ -27,6 +25,9 @@ class BleManager private constructor() {
         private const val SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val WRITE_CHARACTERISTIC_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E"
         private const val READ_CHARACTERISTIC_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E"
+
+        // 🔹 Flutter EventChannel sink
+        var eventSink: EventChannel.EventSink? = null
 
         // SingleInstance
         private var mInstance: BleManager? = null
@@ -140,7 +141,6 @@ class BleManager private constructor() {
         }
     }
 
-    // ✅ NEW: ensureConnected (called from MainActivity MethodChannel)
     fun ensureConnected() {
         if (connectedDevice != null) {
             Log.i(LOG_TAG, "ensureConnected: Already connected to ${connectedDevice?.deviceName()}")
@@ -171,9 +171,24 @@ class BleManager private constructor() {
             }
         }
 
-        override fun onServicesDiscovered(gatt: BluetoothGatt?, status: Int) {
-            Log.i(LOG_TAG, "Services discovered for ${gatt?.device?.address}, status=$status")
-            // TODO: Keep existing service/characteristic setup logic here
+        override fun onCharacteristicChanged(gatt: BluetoothGatt?, characteristic: BluetoothGattCharacteristic?) {
+            val data = characteristic?.value ?: return
+            Log.d(LOG_TAG, "onCharacteristicChanged: ${ByteUtil.byteToHexArray(data)}")
+
+            // Example: detect EvenAI start/stop
+            if (data.size >= 2 && data[0] == 0xF5.toByte()) {
+                when (data[1].toInt()) {
+                    0x17 -> {
+                        Log.i(LOG_TAG, "Mic START detected")
+                        eventSink?.success(mapOf("event" to "mic_start"))
+                    }
+                    0x18 -> {
+                        Log.i(LOG_TAG, "Mic STOP detected")
+                        // ⚡ Later: decode LC3 → transcript
+                        eventSink?.success(mapOf("event" to "mic_stop", "transcript" to "Example transcript from glasses"))
+                    }
+                }
+            }
         }
     }
 
@@ -188,7 +203,6 @@ class BleManager private constructor() {
         }
     }
 
-    // Existing scan callback (shortened for clarity)
     private val scanCallback: ScanCallback = object : ScanCallback() {
         override fun onScanResult(callbackType: Int, result: ScanResult?) {
             super.onScanResult(callbackType, result)
