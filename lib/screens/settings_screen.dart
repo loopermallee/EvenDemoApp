@@ -20,24 +20,33 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Future<void> _loadApiKey() async {
     final prefs = await SharedPreferences.getInstance();
-    final savedKey = prefs.getString("chatgpt_api_key") ?? "";
-    setState(() {
-      _apiKeyController.text = savedKey;
-    });
-    ChatGPTService.apiKey = savedKey; // restore into service
+    final savedKey = prefs.getString("chatgpt_api_key");
+    if (savedKey != null && savedKey.isNotEmpty) {
+      setState(() {
+        _apiKeyController.text = savedKey;
+        ChatGPTService.apiKey = savedKey;
+      });
+    }
   }
 
   Future<void> _saveApiKey() async {
-    final apiKey = _apiKeyController.text.trim();
+    final key = _apiKeyController.text.trim();
+    if (key.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("⚠️ Please enter a valid API key")),
+      );
+      return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("chatgpt_api_key", apiKey);
+    await prefs.setString("chatgpt_api_key", key);
 
     setState(() {
-      ChatGPTService.apiKey = apiKey; // inject into service
+      ChatGPTService.apiKey = key;
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ API Key saved")),
+      const SnackBar(content: Text("✅ API Key saved successfully")),
     );
   }
 
