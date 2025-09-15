@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
 import 'package:demo_ai_even/services/evenai.dart'; // ✅ EvenAI pipeline
+import 'package:demo_ai_even/services/gesture_handler.dart'; // ✅ Gesture handler
 
 class BLEService {
   static const _serviceChannel =
@@ -14,6 +15,8 @@ class BLEService {
   BluetoothDevice? connectedDevice;
 
   BluetoothCharacteristic? _micCharacteristic;
+  BluetoothCharacteristic? _gestureCharacteristic;
+
   final List<int> _micBuffer = []; // 🎤 buffer incoming audio packets
 
   // ✅ Use GetX to manage EvenAI instance
@@ -32,7 +35,7 @@ class BLEService {
     return results;
   }
 
-  /// Connect to device + discover services + start mic notifications
+  /// Connect to device + discover services + subscribe to mic + gestures
   Future<void> connectToDevice(BluetoothDevice device) async {
     await device.connect(autoConnect: false);
     connectedDevice = device;
@@ -48,9 +51,10 @@ class BLEService {
     List<BluetoothService> services = await device.discoverServices();
     for (var service in services) {
       for (var char in service.characteristics) {
-        // ⚠️ Replace "abcd" with actual mic characteristic UUID
-        if (char.properties.notify &&
-            char.uuid.toString().toLowerCase().contains("abcd")) {
+        final uuid = char.uuid.toString().toLowerCase();
+
+        // 🎤 Mic audio notifications
+        if (char.properties.notify && uuid.contains("abcd")) {
           _micCharacteristic = char;
           await _micCharacteristic!.setNotifyValue(true);
 
@@ -59,6 +63,25 @@ class BLEService {
           });
 
           print("🎤 Mic characteristic subscribed");
+        }
+
+        // 🕹️ Gesture notifications
+        if (char.properties.notify && uuid.contains("gest")) {
+          _gestureCharacteristic = char;
+          await _gestureCharacteristic!.setNotifyValue(true);
+
+          _gestureCharacteristic!.value.listen((data) {
+            try {
+              final gestureCode = String.fromCharCodes(data).trim();
+              print("🕹️ Gesture detected: $gestureCode");
+
+              GestureHandler.handleGesture(gestureCode);
+            } catch (e) {
+              print("⚠️ Failed to parse gesture: $e");
+            }
+          });
+
+          print("🕹️ Gesture characteristic subscribed");
         }
       }
     }
