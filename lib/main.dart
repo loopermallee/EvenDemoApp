@@ -5,7 +5,15 @@ import 'screens/ble_screen.dart';
 import 'screens/evenai_screen.dart';
 import 'screens/settings_screen.dart';
 
-void main() {
+// ✅ Import ChatGPT service
+import 'services/chatgpt_service.dart';
+
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // ✅ Load saved ChatGPT API key at startup
+  await ChatGPTService.init();
+
   runApp(const EvenDemoApp());
 }
 
