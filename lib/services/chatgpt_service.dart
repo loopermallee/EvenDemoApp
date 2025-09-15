@@ -33,8 +33,10 @@ class ChatGPTService {
     }
 
     // Pick personality
-    final persona = _useErshin ? "Ershin" : "Fou-Lu";
-    final systemPrompt = _useErshin
+    final isErshin = _useErshin;
+    final persona = isErshin ? "Ershin" : "Fou-Lu";
+
+    final systemPrompt = isErshin
         ? """
 You are Ershin from Breath of Fire IV.
 - Speak oddly and humorously, but **always give clear useful info first**.
@@ -80,7 +82,12 @@ You are Fou-Lu from Breath of Fire IV.
           text = text.substring(0, 247) + "...";
         }
 
-        return text;
+        // ✅ Add retro visual flair
+        if (isErshin) {
+          return "[Ershin]: ✧ $text ✧";
+        } else {
+          return "[Fou-Lu]: ~ $text ~";
+        }
       } else {
         return "⚠️ API Error: ${response.statusCode}";
       }
