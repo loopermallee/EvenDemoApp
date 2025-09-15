@@ -30,14 +30,13 @@ class _AIScreenState extends State<AIScreen> {
       response = reply;
     });
 
-    // ✅ Send reply to HUD
-    GestureHandler.showHUD(reply);
+    // ✅ Show AI reply in HUD overlay
+    GestureHandler.showHUD("📟 ${reply.split("\n").first}");
   }
 
-  /// Placeholder for voice input
+  /// Placeholder for voice input (future STT integration)
   Future<void> _startVoiceInput() async {
-    // In future: integrate STT → text
-    _sendQuery("🎤 [Voice input simulated]");
+    _sendQuery("🎤 [Simulated voice input]");
   }
 
   @override
@@ -45,7 +44,7 @@ class _AIScreenState extends State<AIScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text("🤖 Ershin AI")),
+      appBar: AppBar(title: const Text("🤖 Ershin / Fou-Lu")),
       body: Padding(
         padding: const EdgeInsets.all(16),
         child: Column(
@@ -82,7 +81,7 @@ class _AIScreenState extends State<AIScreen> {
             ),
             const SizedBox(height: 24),
 
-            // Response area
+            // Retro-styled response area
             Expanded(
               child: Container(
                 width: double.infinity,
@@ -97,8 +96,13 @@ class _AIScreenState extends State<AIScreen> {
                       )
                     : SingleChildScrollView(
                         child: Text(
-                          response.isEmpty ? "No reply yet." : response,
-                          style: theme.textTheme.bodyLarge,
+                          response.isEmpty
+                              ? "💾 Awaiting your input, adventurer..."
+                              : response,
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            fontSize: 14,
+                            fontFamily: 'PixelFont',
+                          ),
                         ),
                       ),
               ),
