@@ -8,11 +8,14 @@ import android.content.Intent
 import android.os.Build
 import android.os.IBinder
 import androidx.core.app.NotificationCompat
+import com.example.demo_ai_even.bluetooth.BleManager
 
 class BLEForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+
+        // ✅ Setup notification
         createNotificationChannel()
         val notification: Notification = NotificationCompat.Builder(this, "BLE_CHANNEL")
             .setContentTitle("Even Glasses Connected")
@@ -21,9 +24,14 @@ class BLEForegroundService : Service() {
             .build()
 
         startForeground(1, notification)
+
+        // ✅ Keep BLE connection alive
+        BleManager.instance.ensureConnected(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        // ✅ Could add auto-reconnect logic here if needed
+        BleManager.instance.ensureConnected(this)
         return START_STICKY
     }
 
