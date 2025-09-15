@@ -20,6 +20,11 @@ class _LoadingScreenState extends State<LoadingScreen> {
 
     // Start typing effect
     Timer.periodic(const Duration(milliseconds: 120), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+
       if (_charIndex < _bootText.length) {
         setState(() {
           _visibleText += _bootText[_charIndex];
@@ -29,7 +34,9 @@ class _LoadingScreenState extends State<LoadingScreen> {
         timer.cancel();
         // After full text is shown, wait then go to dashboard
         Timer(const Duration(seconds: 2), () {
-          Navigator.pushReplacementNamed(context, '/dashboard');
+          if (mounted) {
+            Navigator.pushReplacementNamed(context, '/dashboard');
+          }
         });
       }
     });
@@ -57,7 +64,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
         color: Colors.black,
         child: Center(
           child: Text(
-            "$_visibleText${_cursorVisible ? ' █' : ''}", // retro cursor
+            "$_visibleText${_cursorVisible ? ' █' : ''}", // retro blinking cursor
             style: theme.textTheme.bodyLarge?.copyWith(
               fontSize: 16,
               color: Colors.greenAccent,
