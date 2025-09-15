@@ -5,6 +5,7 @@ import 'package:demo_ai_even/ble_manager.dart';
 import 'package:demo_ai_even/controllers/evenai_model_controller.dart';
 import 'package:demo_ai_even/services/chatgpt_service.dart';
 import 'package:demo_ai_even/services/proto.dart';
+import 'package:demo_ai_even/services/gesture_handler.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
@@ -27,11 +28,14 @@ class EvenAI {
   static int maxRetry = 10;
   static int _currentLine = 0;
   static Timer? _timer; // Text sending timer
+  static Timer? _countdownTimer; // Countdown display
+  static int _countdown = 0;
+
   static List<String> list = [];
   static List<String> sendReplys = [];
 
   Timer? _recordingTimer;
-  final int maxRecordingDuration = 30; // max mic duration
+  final int maxRecordingDuration = 30;
 
   static bool _isManual = false;
 
@@ -55,7 +59,8 @@ class EvenAI {
 
   String combinedText = '';
 
-  static final StreamController<String> _textStreamController = StreamController<String>.broadcast();
+  static final StreamController<String> _textStreamController =
+      StreamController<String>.broadcast();
   static Stream<String> get textStream => _textStreamController.stream;
 
   static void updateDynamicText(String newText) {
@@ -74,7 +79,7 @@ class EvenAI {
     });
   }
 
-  // ▶️ Start Even AI (triggered from glasses via BLE)
+  // ▶️ Start Even AI
   void toStartEvenAIByOS() async {
     BleManager.get().startSendBeatHeart();
     startListening();
@@ -104,7 +109,7 @@ class EvenAI {
     });
   }
 
-  // ⏹️ Called when mic stops
+  // ⏹️ Stop mic → send text to ChatGPT
   Future<void> recordOverByOS() async {
     int currentTime = DateTime.now().millisecondsSinceEpoch;
     if (currentTime - _lastStopTime < stopTimeGap) return;
@@ -124,12 +129,10 @@ class EvenAI {
       return;
     }
 
-    // ✅ Send transcript to ChatGPT
     final result = await ChatGPTService.askChatGPT(combinedText);
 
     final speaker = result["speaker"] as String;
     final pages = (result["pages"] as List<String>);
-
     final reply = pages.join("\n\n");
 
     updateDynamicText("$combinedText\n\n$reply");
@@ -165,7 +168,8 @@ class EvenAI {
 
     if (list.isEmpty) return;
 
-    String firstScreen = list.sublist(0, min(5, list.length)).map((s) => '$s\n').join();
+    String firstScreen =
+        list.sublist(0, min(5, list.length)).map((s) => '$s\n').join();
     bool isSuccess = await sendEvenAIReply(firstScreen, 0x01, 0x30, 0);
 
     if (isSuccess) {
@@ -176,11 +180,13 @@ class EvenAI {
     }
   }
 
+  /// ⏳ Auto page updates + dynamic countdown
   Future updateReplyToOSByTimer() async {
-    int interval = 5; // seconds per page
     _timer?.cancel();
-    _timer = Timer.periodic(Duration(seconds: interval), (timer) async {
+
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_isManual) {
+        _stopCountdown();
         _timer?.cancel();
         _timer = null;
         return;
@@ -190,19 +196,57 @@ class EvenAI {
       sendReplys = list.sublist(_currentLine);
 
       if (_currentLine > list.length - 1) {
+        _stopCountdown();
         _timer?.cancel();
         _timer = null;
       } else {
-        var mergedStr = sendReplys.sublist(0, min(5, sendReplys.length)).map((s) => '$s\n').join();
+        var mergedStr =
+            sendReplys.sublist(0, min(5, sendReplys.length)).map((s) => '$s\n').join();
+
         await sendEvenAIReply(
-            mergedStr, 0x01, (_currentLine >= list.length - 5) ? 0x40 : 0x30, 0);
+          mergedStr,
+          0x01,
+          (_currentLine >= list.length - 5) ? 0x40 : 0x30,
+          0,
+        );
+
+        // ✅ Start dynamic countdown
+        int seconds = _estimateDisplayTime(mergedStr);
+        _startCountdown(seconds);
       }
     });
+  }
+
+  int _estimateDisplayTime(String text) {
+    if (text.length < 60) return 3; // short
+    if (text.length < 150) return 5; // medium
+    return 8; // long
+  }
+
+  void _startCountdown(int seconds) {
+    _countdownTimer?.cancel();
+    _countdown = seconds;
+
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_countdown <= 0) {
+        _stopCountdown();
+      } else {
+        GestureHandler.hudMessage.value = "Next page in $_countdown…";
+        _countdown--;
+      }
+    });
+  }
+
+  void _stopCountdown() {
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
+    GestureHandler.hudMessage.value = null;
   }
 
   void nextPageByTouchpad() {
     if (!isRunning) return;
     _isManual = true;
+    _stopCountdown();
     _timer?.cancel();
     _timer = null;
 
@@ -215,6 +259,7 @@ class EvenAI {
   void lastPageByTouchpad() {
     if (!isRunning) return;
     _isManual = true;
+    _stopCountdown();
     _timer?.cancel();
     _timer = null;
 
@@ -227,7 +272,8 @@ class EvenAI {
   Future updateReplyToOSByManual() async {
     if (_currentLine < 0 || _currentLine > list.length - 1) return;
     sendReplys = list.sublist(_currentLine);
-    var mergedStr = sendReplys.sublist(0, min(5, sendReplys.length)).map((s) => '$s\n').join();
+    var mergedStr =
+        sendReplys.sublist(0, min(5, sendReplys.length)).map((s) => '$s\n').join();
     await sendEvenAIReply(mergedStr, 0x01, 0x50, 0);
   }
 
@@ -246,6 +292,8 @@ class EvenAI {
     _recordingTimer = null;
     _timer?.cancel();
     _timer = null;
+    _countdownTimer?.cancel();
+    _countdownTimer = null;
     audioDataBuffer.clear();
     audioData = null;
     list = [];
