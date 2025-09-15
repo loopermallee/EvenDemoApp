@@ -26,6 +26,9 @@ dependencies:
   # Persistence
   shared_preferences: ^2.2.2   # ✅ for storing API key, tiles, brightness
 
+  # 🆕 Text-to-Speech
+  flutter_tts: ^3.8.3
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
