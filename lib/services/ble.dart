@@ -1,6 +1,8 @@
 import 'dart:async';
+import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:demo_ai_even/services/evenai.dart'; // 🆕 import EvenAI
 
 class BLEService {
   static const _serviceChannel =
@@ -8,6 +10,9 @@ class BLEService {
 
   final FlutterBluePlus _flutterBlue = FlutterBluePlus.instance;
   BluetoothDevice? connectedDevice;
+
+  BluetoothCharacteristic? _micCharacteristic;
+  final List<int> _micBuffer = []; // 🆕 store incoming audio
 
   /// Scan for BLE devices
   Future<List<BluetoothDevice>> scanForDevices() async {
@@ -22,7 +27,7 @@ class BLEService {
     return results;
   }
 
-  /// Connect to device + start Foreground Service
+  /// Connect to device + discover services + start mic notifications
   Future<void> connectToDevice(BluetoothDevice device) async {
     await device.connect(autoConnect: false);
     connectedDevice = device;
@@ -33,6 +38,40 @@ class BLEService {
     } catch (e) {
       print("⚠️ Failed to start foreground service: $e");
     }
+
+    // Discover services
+    List<BluetoothService> services = await device.discoverServices();
+    for (var service in services) {
+      for (var char in service.characteristics) {
+        // 🆕 Assume mic data characteristic UUID (replace with real UUID)
+        if (char.properties.notify &&
+            char.uuid.toString().toLowerCase().contains("abcd")) {
+          _micCharacteristic = char;
+          await _micCharacteristic!.setNotifyValue(true);
+
+          _micCharacteristic!.value.listen((data) {
+            _micBuffer.addAll(data);
+          });
+
+          print("🎤 Mic characteristic subscribed");
+        }
+      }
+    }
+  }
+
+  /// Stop mic recording → flush buffer to EvenAI
+  Future<void> stopMicRecording() async {
+    if (_micBuffer.isEmpty) {
+      print("⚠️ No audio captured");
+      return;
+    }
+
+    final audioBytes = Uint8List.fromList(_micBuffer);
+
+    // Send to EvenAI pipeline (STT → ChatGPT → HUD)
+    await EvenAI.get.recordOverByOS(audioBytes);
+
+    _micBuffer.clear();
   }
 
   /// Disconnect device + stop Foreground Service
