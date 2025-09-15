@@ -140,6 +140,16 @@ class BleManager private constructor() {
         }
     }
 
+    // ✅ NEW: ensureConnected (called from MainActivity MethodChannel)
+    fun ensureConnected() {
+        if (connectedDevice != null) {
+            Log.i(LOG_TAG, "ensureConnected: Already connected to ${connectedDevice?.deviceName()}")
+        } else {
+            Log.w(LOG_TAG, "ensureConnected: No active connection, trying reconnect...")
+            reconnectLastDevice()
+        }
+    }
+
     // ================= PRIVATE ================= //
 
     private fun checkBluetoothStatus(): Boolean {
