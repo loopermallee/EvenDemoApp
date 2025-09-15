@@ -1,14 +1,15 @@
 import 'dart:async';
 import 'dart:io';
 import 'dart:math';
+import 'dart:typed_data';
 import 'package:demo_ai_even/ble_manager.dart';
 import 'package:demo_ai_even/controllers/evenai_model_controller.dart';
 import 'package:demo_ai_even/services/chatgpt_service.dart';
 import 'package:demo_ai_even/services/proto.dart';
 import 'package:demo_ai_even/services/gesture_handler.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
+import 'package:demo_ai_even/services/stt_service.dart'; // 🆕 Whisper STT
 import 'package:get/get.dart';
+import 'package:flutter/material.dart';
 
 class EvenAI {
   static EvenAI? _instance;
@@ -53,10 +54,6 @@ class EvenAI {
   final int startTimeGap = 500;
   final int stopTimeGap = 500;
 
-  static const _eventSpeechRecognize = "eventSpeechRecognize";
-  final _eventSpeechRecognizeChannel =
-      const EventChannel(_eventSpeechRecognize).receiveBroadcastStream(_eventSpeechRecognize);
-
   String combinedText = '';
 
   static final StreamController<String> _textStreamController =
@@ -69,20 +66,9 @@ class EvenAI {
 
   EvenAI._();
 
-  void startListening() {
-    combinedText = '';
-    _eventSpeechRecognizeChannel.listen((event) {
-      var txt = event["script"] as String;
-      combinedText = txt;
-    }, onError: (error) {
-      print("Error in event: $error");
-    });
-  }
-
-  // ▶️ Start Even AI
+  /// ▶️ Start Even AI
   void toStartEvenAIByOS() async {
     BleManager.get().startSendBeatHeart();
-    startListening();
 
     int currentTime = DateTime.now().millisecondsSinceEpoch;
     if (currentTime - _lastStartTime < startTimeGap) return;
@@ -109,8 +95,8 @@ class EvenAI {
     });
   }
 
-  // ⏹️ Stop mic → send text to ChatGPT
-  Future<void> recordOverByOS() async {
+  /// ⏹️ Stop mic → run STT → send to ChatGPT
+  Future<void> recordOverByOS(Uint8List audioBytes) async {
     int currentTime = DateTime.now().millisecondsSinceEpoch;
     if (currentTime - _lastStopTime < stopTimeGap) return;
     _lastStopTime = currentTime;
@@ -120,15 +106,19 @@ class EvenAI {
     _recordingTimer = null;
 
     await BleManager.invokeMethod("stopEvenAI");
-    await Future.delayed(Duration(seconds: 2));
 
-    if (combinedText.isEmpty) {
+    // Step 1: STT
+    final transcript = await STTService.transcribe(audioBytes);
+    if (transcript == null || transcript.isEmpty) {
       updateDynamicText("No Speech Recognized");
       isEvenAISyncing.value = false;
       startSendReply("No Speech Recognized");
       return;
     }
 
+    combinedText = transcript;
+
+    // Step 2: ChatGPT
     final result = await ChatGPTService.askChatGPT(combinedText);
 
     final speaker = result["speaker"] as String;
