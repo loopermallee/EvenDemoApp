@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import '../services/ble.dart';
+import 'evenai_screen.dart'; // ✅ added import
 
 class BLESScreen extends StatefulWidget {
   const BLESScreen({super.key});
@@ -97,6 +98,28 @@ class _BLESScreenState extends State<BLESScreen> {
     }
   }
 
+  /// 🚀 Navigate to EvenAI with connected device
+  void _openEvenAI() {
+    if (connectedDevice == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            "⚠️ Connect a device first before using EvenAI",
+            style: TextStyle(fontFamily: 'PixelFont', color: Colors.greenAccent),
+          ),
+        ),
+      );
+      return;
+    }
+
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => EvenAIScreen(connectedDevice: connectedDevice),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -122,6 +145,10 @@ class _BLESScreenState extends State<BLESScreen> {
               icon: const Icon(Icons.link_off),
               onPressed: _disconnectDevice,
             ),
+          IconButton(
+            icon: const Icon(Icons.smart_toy), // 🤖 shortcut
+            onPressed: _openEvenAI,
+          ),
         ],
       ),
       body: isScanning
