@@ -1,9 +1,19 @@
 import 'package:flutter/material.dart';
 import 'screens/loading_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/dashboard_screen.dart'; // ✅ Dashboard
 import 'screens/ble_screen.dart';
 import 'screens/evenai_screen.dart';
 import 'screens/settings_screen.dart';
+
+// ✅ Tiles
+import 'screens/translate_screen.dart';
+import 'screens/navigate_screen.dart';
+import 'screens/teleprompt_screen.dart';
+import 'screens/ai_screen.dart';
+import 'screens/transcribe_screen.dart';
+import 'screens/todo_screen.dart';
+import 'screens/commute_screen.dart';
+import 'screens/notifications_screen.dart';
 
 // ✅ Import ChatGPT service
 import 'services/chatgpt_service.dart';
@@ -108,7 +118,7 @@ class EvenDemoApp extends StatelessWidget {
         ),
       ),
       builder: (context, child) {
-        // ✅ Global overlay: show HUD on top of any screen
+        // ✅ Global overlay HUD
         return Stack(
           children: [
             child ?? const SizedBox.shrink(),
@@ -116,13 +126,19 @@ class EvenDemoApp extends StatelessWidget {
           ],
         );
       },
-      home: const LoadingScreen(), // ✅ Start with retro loading boot
+      home: const LoadingScreen(), // ✅ Boot screen first
       routes: {
-        '/home': (context) => const HomeScreen(),
+        // 🔥 After loading, navigate to Dashboard
+        '/dashboard': (context) => const DashboardScreen(),
+
+        // Core app screens
         '/ble': (context) => const BLESScreen(),
         '/evenai': (context) => const EvenAIScreen(),
         '/settings': (context) => const SettingsScreen(),
-      },
-    );
-  }
-}
+
+        // Tiles
+        '/translate': (context) => const TranslateScreen(),
+        '/navigate': (context) => const NavigateScreen(),
+        '/teleprompt': (context) => const TelepromptScreen(),
+        '/ai': (context) => const AIScreen(),
+        '/transcribe': (context) => const Trans
