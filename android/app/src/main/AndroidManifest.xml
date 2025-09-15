@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.loopermallee.evendemoapp">
+    package="com.example.demo_ai_even"> <!-- ✅ Match Kotlin package path -->
 
     <!-- 🔹 Bluetooth Permissions (required for flutter_blue_plus) -->
     <uses-permission android:name="android.permission.BLUETOOTH" android:maxSdkVersion="30"/>
@@ -10,9 +10,8 @@
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <uses-permission android:name="android.permission.INTERNET" />
 
-    <!-- ✅ NEW: Foreground service permission -->
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE" />
+    <!-- ✅ Allow foreground service so glasses stay connected even on lockscreen -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
     <application
         android:label="demo_ai_even"
@@ -44,13 +43,6 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
-
-        <!-- ✅ NEW: Foreground service declaration -->
-        <service
-            android:name=".services.BLEForegroundService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="connectedDevice" />
     </application>
 
     <!-- 🔹 Required for text processing visibility -->
