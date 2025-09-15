@@ -43,6 +43,13 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- ✅ Foreground BLE Service registration -->
+        <service
+            android:name=".BLEForegroundService"
+            android:enabled="true"
+            android:exported="false"
+            android:foregroundServiceType="connectedDevice|dataSync" />
     </application>
 
     <!-- 🔹 Required for text processing visibility -->
