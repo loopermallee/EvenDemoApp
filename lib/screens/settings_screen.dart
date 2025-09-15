@@ -12,6 +12,7 @@ class SettingsScreen extends StatefulWidget {
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
   bool _hasSavedKey = false;
+  bool _editingKey = false;
 
   @override
   void initState() {
@@ -26,8 +27,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (savedKey != null && savedKey.isNotEmpty) {
       setState(() {
         _hasSavedKey = true;
-        // ✅ Instead of showing the real key, show a glitchy placeholder
-        _apiKeyController.text = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒";
+        _editingKey = false;
+        _apiKeyController.text = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"; // glitchy placeholder
       });
     }
   }
@@ -46,12 +47,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     setState(() {
       _hasSavedKey = true;
-      _apiKeyController.text = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"; // ✅ Show glitch placeholder
+      _editingKey = false;
+      _apiKeyController.text = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"; // revert to placeholder
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(content: Text("✅ API Key saved & in use")),
     );
+  }
+
+  void _enableEditing() {
+    setState(() {
+      _editingKey = true;
+      _apiKeyController.clear();
+    });
   }
 
   @override
@@ -66,7 +75,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             TextField(
               controller: _apiKeyController,
-              obscureText: false, // ✅ show placeholder as text, not dots
+              obscureText: false, // ✅ show placeholder as text
+              enabled: !_hasSavedKey || _editingKey,
               style: const TextStyle(
                 fontFamily: 'PixelFont',
                 color: Colors.greenAccent,
@@ -75,15 +85,24 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 labelText: "Enter ChatGPT API Key",
                 hintText: "sk-xxxx...",
                 helperText: _hasSavedKey
-                    ? "🔒 Key is saved & active (hidden for security)"
+                    ? _editingKey
+                        ? "✍️ Enter a new key to replace the old one"
+                        : "🔒 Key is saved & active (hidden for security)"
                     : "Enter a new API key to activate",
               ),
             ),
             const SizedBox(height: 16),
-            ElevatedButton(
-              onPressed: _saveApiKey,
-              child: const Text("SAVE"),
-            ),
+            if (_hasSavedKey && !_editingKey) ...[
+              ElevatedButton(
+                onPressed: _enableEditing,
+                child: const Text("CHANGE API KEY"),
+              ),
+            ] else ...[
+              ElevatedButton(
+                onPressed: _saveApiKey,
+                child: const Text("SAVE"),
+              ),
+            ],
           ],
         ),
       ),
