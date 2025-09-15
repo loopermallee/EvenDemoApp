@@ -14,9 +14,8 @@ class BLEForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-
-        // ✅ Setup notification
         createNotificationChannel()
+
         val notification: Notification = NotificationCompat.Builder(this, "BLE_CHANNEL")
             .setContentTitle("Even Glasses Connected")
             .setContentText("Keeping BLE connection active in background")
@@ -25,13 +24,11 @@ class BLEForegroundService : Service() {
 
         startForeground(1, notification)
 
-        // ✅ Keep BLE connection alive
-        BleManager.instance.ensureConnected(this)
+        // ✅ Ensure BLE stays alive while service runs
+        BleManager.ensureConnected(this)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // ✅ Could add auto-reconnect logic here if needed
-        BleManager.instance.ensureConnected(this)
         return START_STICKY
     }
 
