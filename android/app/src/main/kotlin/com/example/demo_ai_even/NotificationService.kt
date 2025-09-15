@@ -10,12 +10,29 @@ class NotificationService : NotificationListenerService() {
     }
 
     override fun onNotificationPosted(sbn: StatusBarNotification) {
-        val pkg = sbn.packageName
-        val extras = sbn.notification.extras
-        val title = extras.getString("android.title") ?: ""
-        val text = extras.getCharSequence("android.text")?.toString() ?: ""
+        try {
+            val pkg = sbn.packageName ?: "unknown"
+            val extras = sbn.notification.extras
+            val title = extras.getString("android.title") ?: ""
+            val text = extras.getCharSequence("android.text")?.toString() ?: ""
 
-        val msg = "[$pkg] $title: $text"
-        channel?.invokeMethod("onNotification", msg)
+            // Ignore empty notifications (system noise)
+            if (title.isBlank() && text.isBlank()) return
+
+            // Format nicely
+            val msg = if (title.isNotBlank()) {
+                "[$pkg] $title: $text"
+            } else {
+                "[$pkg] $text"
+            }
+
+            channel?.invokeMethod("onNotification", msg)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
+
+    override fun onNotificationRemoved(sbn: StatusBarNotification) {
+        // Optional: could send "removed" events if needed
     }
 }
