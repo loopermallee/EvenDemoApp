@@ -72,9 +72,8 @@ class BLEService {
 
           _gestureCharacteristic!.value.listen((data) {
             try {
-              final gestureCode = String.fromCharCodes(data).trim();
+              final gestureCode = _decodeGesture(Uint8List.fromList(data));
               print("🕹️ Gesture detected: $gestureCode");
-
               GestureHandler.handleGesture(gestureCode);
             } catch (e) {
               print("⚠️ Failed to parse gesture: $e");
@@ -84,6 +83,27 @@ class BLEService {
           print("🕹️ Gesture characteristic subscribed");
         }
       }
+    }
+  }
+
+  /// Map raw BLE gesture byte → friendly string
+  String _decodeGesture(Uint8List data) {
+    if (data.isEmpty) return "unknown";
+    switch (data[0]) {
+      case 0x01:
+        return "singleTapRight";
+      case 0x02:
+        return "singleTapLeft";
+      case 0x03:
+        return "doubleTapRight";
+      case 0x04:
+        return "doubleTapLeft";
+      case 0x05:
+        return "tripleTap";
+      case 0x06:
+        return "longHold";
+      default:
+        return "unknown";
     }
   }
 
