@@ -44,7 +44,7 @@ class BLEService {
       // ✅ Stop foreground service
       await _serviceChannel.invokeMethod("stopForegroundService");
     } catch (e) {
-      print("⚠️ Failed to stop foreground service: $e");
+      print("⚠️ Failed to stop service: $e");
     }
   }
 
@@ -62,6 +62,7 @@ class BLEService {
   Future<void> ensureConnected() async {
     try {
       await _serviceChannel.invokeMethod("ensureConnected");
+      print("🔄 Ensuring BLE connection via ForegroundService");
     } catch (e) {
       print("⚠️ Failed to ensure reconnect: $e");
     }
