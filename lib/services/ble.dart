@@ -1,62 +1,59 @@
+import 'dart:async';
+import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
 class BLEService {
+  static const _serviceChannel =
+      MethodChannel("com.example.demo_ai_even/ble_service");
+
+  final FlutterBluePlus _flutterBlue = FlutterBluePlus.instance;
   BluetoothDevice? connectedDevice;
 
-  /// Scan for nearby Bluetooth devices
+  /// Scan for BLE devices
   Future<List<BluetoothDevice>> scanForDevices() async {
-    List<BluetoothDevice> devices = [];
-    FlutterBluePlus flutterBlue = FlutterBluePlus.instance;
+    final results = <BluetoothDevice>[];
+    final scanResults = await _flutterBlue.startScan(timeout: const Duration(seconds: 5));
 
-    await flutterBlue.startScan(timeout: const Duration(seconds: 4));
-    await for (var results in flutterBlue.scanResults.first) {
-      devices.addAll(results.map((r) => r.device));
+    await for (final result in _flutterBlue.scanResults) {
+      results.add(result.device);
     }
-    await flutterBlue.stopScan();
 
-    // Remove duplicates by device ID
-    final uniqueDevices = {
-      for (var d in devices) d.id: d,
-    }.values.toList();
-
-    return uniqueDevices;
+    await _flutterBlue.stopScan();
+    return results;
   }
 
-  /// Connect to a Bluetooth device
+  /// Connect to device + start Foreground Service
   Future<void> connectToDevice(BluetoothDevice device) async {
-    await device.connect(autoConnect: true);
+    await device.connect(autoConnect: false);
     connectedDevice = device;
 
-    // Save device ID for future auto-reconnect
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString('last_connected_device', device.id.id);
+    // ✅ Start foreground service
+    try {
+      await _serviceChannel.invokeMethod("startForegroundService");
+    } catch (e) {
+      print("⚠️ Failed to start service: $e");
+    }
   }
 
-  /// Disconnect from current device
+  /// Disconnect device + stop Foreground Service
   Future<void> disconnectFromDevice(BluetoothDevice device) async {
-    await device.disconnect();
-    connectedDevice = null;
+    try {
+      await device.disconnect();
+      connectedDevice = null;
 
-    // Remove saved device ID
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove('last_connected_device');
+      // ✅ Stop foreground service
+      await _serviceChannel.invokeMethod("stopForegroundService");
+    } catch (e) {
+      print("⚠️ Failed to stop service: $e");
+    }
   }
 
-  /// Try to reconnect to the last saved device
+  /// Try reconnecting to last device
   Future<BluetoothDevice?> reconnectLastDevice() async {
-    final prefs = await SharedPreferences.getInstance();
-    final deviceId = prefs.getString('last_connected_device');
-
-    if (deviceId != null) {
-      try {
-        final device = BluetoothDevice.fromId(deviceId);
-        await device.connect(autoConnect: true);
-        connectedDevice = device;
-        return device;
-      } catch (_) {
-        return null;
-      }
+    final connected = await _flutterBlue.connectedDevices;
+    if (connected.isNotEmpty) {
+      connectedDevice = connected.first;
+      return connectedDevice;
     }
     return null;
   }
