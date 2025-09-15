@@ -7,6 +7,7 @@ import android.app.Service
 import android.content.Intent
 import android.os.Build
 import android.os.IBinder
+import android.util.Log
 import androidx.core.app.NotificationCompat
 import com.example.demo_ai_even.bluetooth.BleManager
 
@@ -14,6 +15,8 @@ class BLEForegroundService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.i("BLEForegroundService", "Service created")
+
         createNotificationChannel()
 
         val notification: Notification = NotificationCompat.Builder(this, "BLE_CHANNEL")
@@ -22,13 +25,26 @@ class BLEForegroundService : Service() {
             .setSmallIcon(R.mipmap.ic_launcher)
             .build()
 
+        // ✅ Start foreground mode
         startForeground(1, notification)
 
-        // ✅ Ensure BLE stays alive while service runs
-        BleManager.ensureConnected(this)
+        // ✅ Try auto-reconnect immediately
+        try {
+            BleManager.instance.ensureConnected()
+            Log.i("BLEForegroundService", "Auto-reconnect triggered on service start")
+        } catch (e: Exception) {
+            Log.e("BLEForegroundService", "Failed to auto-reconnect: $e")
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
+        Log.i("BLEForegroundService", "Service restarted with intent: $intent")
+        // ✅ Ensure reconnect every time service is restarted
+        try {
+            BleManager.instance.ensureConnected()
+        } catch (e: Exception) {
+            Log.e("BLEForegroundService", "Error ensuring connection: $e")
+        }
         return START_STICKY
     }
 
