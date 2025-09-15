@@ -4,7 +4,7 @@ import 'package:flutter/material.dart';
 import '../services/gesture_handler.dart';
 
 /// A floating retro HUD that shows tap feedback + launching text.
-/// Adds a glitchy scrambled effect before revealing the real text.
+/// Now with a Matrix-style glitch effect (0s and 1s).
 /// Auto-clears after 2 seconds.
 class HUDOverlay extends StatefulWidget {
   const HUDOverlay({super.key});
@@ -43,10 +43,10 @@ class _HUDOverlayState extends State<HUDOverlay> {
         timer.cancel();
         setState(() => _displayText = realText); // reveal final message
       } else {
-        final scrambled = String.fromCharCodes(
-          List.generate(realText.length,
-              (_) => rand.nextInt(26) + 65), // random A–Z
-        );
+        final scrambled = List.generate(
+          realText.length,
+          (_) => rand.nextBool() ? "0" : "1", // matrix style glitch
+        ).join();
         setState(() => _displayText = scrambled);
       }
     });
@@ -78,9 +78,10 @@ class _HUDOverlayState extends State<HUDOverlay> {
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.greenAccent,
+                letterSpacing: 2,
                 shadows: const [
                   Shadow(
-                    blurRadius: 8,
+                    blurRadius: 10,
                     color: Colors.green,
                     offset: Offset(0, 0),
                   )
