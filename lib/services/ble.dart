@@ -1,8 +1,10 @@
+// lib/services/ble.dart
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
-import 'package:demo_ai_even/services/evenai.dart'; // 🆕 import EvenAI
+import 'package:get/get.dart';
+import 'package:demo_ai_even/services/evenai.dart'; // ✅ EvenAI pipeline
 
 class BLEService {
   static const _serviceChannel =
@@ -12,7 +14,10 @@ class BLEService {
   BluetoothDevice? connectedDevice;
 
   BluetoothCharacteristic? _micCharacteristic;
-  final List<int> _micBuffer = []; // 🆕 store incoming audio
+  final List<int> _micBuffer = []; // 🎤 buffer incoming audio packets
+
+  // ✅ Use GetX to manage EvenAI instance
+  final EvenAI evenAI = Get.put(EvenAI());
 
   /// Scan for BLE devices
   Future<List<BluetoothDevice>> scanForDevices() async {
@@ -43,7 +48,7 @@ class BLEService {
     List<BluetoothService> services = await device.discoverServices();
     for (var service in services) {
       for (var char in service.characteristics) {
-        // 🆕 Assume mic data characteristic UUID (replace with real UUID)
+        // ⚠️ Replace "abcd" with actual mic characteristic UUID
         if (char.properties.notify &&
             char.uuid.toString().toLowerCase().contains("abcd")) {
           _micCharacteristic = char;
@@ -59,7 +64,7 @@ class BLEService {
     }
   }
 
-  /// Stop mic recording → flush buffer to EvenAI
+  /// Stop mic recording → flush buffer into EvenAI pipeline
   Future<void> stopMicRecording() async {
     if (_micBuffer.isEmpty) {
       print("⚠️ No audio captured");
@@ -68,8 +73,8 @@ class BLEService {
 
     final audioBytes = Uint8List.fromList(_micBuffer);
 
-    // Send to EvenAI pipeline (STT → ChatGPT → HUD)
-    await EvenAI.get.recordOverByOS(audioBytes);
+    // ✅ Send audio to EvenAI pipeline (STT → ChatGPT → HUD)
+    await evenAI.startListening(audioBytes);
 
     _micBuffer.clear();
   }
