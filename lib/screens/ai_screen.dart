@@ -1,9 +1,9 @@
 // lib/screens/ai_screen.dart
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../services/chatgpt_service.dart';
 import '../services/gesture_handler.dart';
-import '../services/stt_service.dart';
+import '../services/ble.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -16,6 +16,9 @@ class _AIScreenState extends State<AIScreen> {
   final TextEditingController _controller = TextEditingController();
   String response = "";
   bool isLoading = false;
+
+  // ✅ Use BLEService
+  final BLEService bleService = Get.put(BLEService());
 
   Future<void> _sendQuery(String query) async {
     if (query.trim().isEmpty) return;
@@ -36,27 +39,20 @@ class _AIScreenState extends State<AIScreen> {
     GestureHandler.showHUD("📟 ${reply.split("\n").first}");
   }
 
-  /// 🎤 Voice input using STTService
+  /// 🎤 Start voice input via BLE mic
   Future<void> _startVoiceInput() async {
     setState(() {
       isLoading = true;
       response = "";
     });
 
-    // ⚠️ TODO: Replace with real BLE mic audio
-    final fakeAudio = Uint8List.fromList([1, 2, 3, 4]);
+    // Stop BLE mic recording → flush buffer into EvenAI → STT → ChatGPT → HUD
+    await bleService.stopMicRecording();
 
-    final transcript = await STTService.transcribe(fakeAudio);
-
-    if (transcript == null || transcript.isEmpty) {
-      setState(() {
-        isLoading = false;
-        response = "⚠️ Could not understand audio";
-      });
-      return;
-    }
-
-    await _sendQuery(transcript);
+    setState(() {
+      isLoading = false;
+      response = "🎤 Processing voice input… (see HUD)";
+    });
   }
 
   @override
