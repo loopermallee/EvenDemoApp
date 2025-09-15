@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'gesture_handler.dart';
 
 class ChatGPTService {
   static const String _baseUrl = "https://api.openai.com/v1/chat/completions";
@@ -27,13 +28,10 @@ class ChatGPTService {
   }
 
   /// 🤖 Ask ChatGPT with alternating Ershin / Fou-Lu personalities
-  /// Returns structured response with speaker + pages
-  static Future<Map<String, dynamic>> askChatGPT(String query) async {
+  static Future<void> askChatGPT(String query) async {
     if (apiKey.isEmpty) {
-      return {
-        "speaker": "⚠️",
-        "pages": ["API key missing. Please update in Settings."]
-      };
+      GestureHandler.showPagedHUD("⚠️ API key missing. Please update in Settings.");
+      return;
     }
 
     // Pick personality
@@ -79,8 +77,8 @@ You are Fou-Lu from Breath of Fire IV.
 
       if (response.statusCode == 200) {
         final data = response.data;
-        String text = data["choices"][0]["message"]["content"]?.trim() ??
-            "⚠️ No response content";
+        String text =
+            data["choices"][0]["message"]["content"]?.trim() ?? "⚠️ No response content";
 
         // ✅ Trim overly long replies
         if (text.length > 400) {
@@ -90,24 +88,17 @@ You are Fou-Lu from Breath of Fire IV.
         // ✅ Split into “pages” for HUD readability
         final pages = _splitIntoPages(text);
 
-        // ✅ Add retro speaker tag styling
-        return {
-          "speaker": speaker,
-          "pages": pages.map((p) {
+        // ✅ Add retro speaker tags & send to HUD
+        GestureHandler.showPagedHUD(
+          pages.map((p) {
             return isErshin ? "[Ershin]: ✧ $p ✧" : "[Fou-Lu]: ~ $p ~";
           }).toList(),
-        };
+        );
       } else {
-        return {
-          "speaker": "⚠️",
-          "pages": ["API Error: ${response.statusCode}"]
-        };
+        GestureHandler.showPagedHUD("⚠️ API Error: ${response.statusCode}");
       }
     } catch (e) {
-      return {
-        "speaker": "⚠️",
-        "pages": ["ChatGPT request failed: $e"]
-      };
+      GestureHandler.showPagedHUD("⚠️ ChatGPT request failed: $e");
     }
   }
 
