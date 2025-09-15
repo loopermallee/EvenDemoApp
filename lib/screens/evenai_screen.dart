@@ -14,8 +14,10 @@ class EvenAIScreen extends StatefulWidget {
 class _EvenAIScreenState extends State<EvenAIScreen> {
   final TextEditingController _controller = TextEditingController();
   final EvenAIService _evenAI = EvenAIService();
+
   String response = "";
   bool isConnecting = false;
+  bool isListening = false; // ✅ indicate glasses mic active
 
   Future<void> sendQuery() async {
     final query = _controller.text.trim();
@@ -26,6 +28,28 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
     });
 
     final reply = await _evenAI.sendQuery(query);
+
+    if (mounted) {
+      setState(() => response = reply);
+    }
+  }
+
+  /// Called when mic stream from glasses starts
+  void onMicStart() {
+    setState(() {
+      isListening = true;
+      response = "🎤 Listening via glasses mic...";
+    });
+  }
+
+  /// Called when mic stream ends and transcription is ready
+  Future<void> onMicTranscript(String transcript) async {
+    setState(() {
+      isListening = false;
+      response = "🤖 Thinking...";
+    });
+
+    final reply = await _evenAI.sendQuery(transcript);
 
     if (mounted) {
       setState(() => response = reply);
@@ -73,13 +97,23 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             ),
             const SizedBox(height: 16),
 
-            // ✅ Query input
+            // ✅ Show listening status
+            if (isListening)
+              Text(
+                "🎤 Glasses mic active... speak now!",
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: Colors.greenAccent,
+                  fontStyle: FontStyle.italic,
+                ),
+              ),
+
+            // ✅ Query input (debug / fallback)
             TextField(
               controller: _controller,
               style: theme.textTheme.bodyLarge,
               cursorColor: Colors.greenAccent,
               decoration: const InputDecoration(
-                hintText: "Ask me anything...",
+                hintText: "Type here (debug only)...",
               ),
             ),
             const SizedBox(height: 12),
@@ -91,11 +125,11 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
             ),
             const SizedBox(height: 24),
 
-            // ✅ AI Response (retro style scrollable text)
+            // ✅ AI Response (retro scrollable text)
             Expanded(
               child: SingleChildScrollView(
                 child: Text(
-                  response,
+                  response.isEmpty ? "No reply yet." : response,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: Colors.greenAccent,
                   ),
