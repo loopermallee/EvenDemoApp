@@ -25,26 +25,30 @@ class MainActivity: FlutterActivity(), EventChannel.StreamHandler {
         super.configureFlutterEngine(flutterEngine)
         BleChannelHelper.initChannel(this, flutterEngine)
 
-        // ✅ Add MethodChannel for Foreground Service control
+        // ✅ MethodChannel: Foreground Service + BLE reconnect
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, SERVICE_CHANNEL)
             .setMethodCallHandler { call, result ->
                 when (call.method) {
                     "startForegroundService" -> {
                         val intent = Intent(this, BLEForegroundService::class.java)
                         startForegroundService(intent)
-                        result.success(null)
+                        result.success("✅ Foreground service started")
                     }
                     "stopForegroundService" -> {
                         val intent = Intent(this, BLEForegroundService::class.java)
                         stopService(intent)
-                        result.success(null)
+                        result.success("✅ Foreground service stopped")
+                    }
+                    "ensureConnected" -> {
+                        BleManager.instance.ensureConnected()
+                        result.success("✅ BLE ensureConnected triggered")
                     }
                     else -> result.notImplemented()
                 }
             }
     }
 
-    /// Interface - EventChannel.StreamHandler
+    // 🔹 EventChannel: for streaming BLE events into Flutter
     override fun onListen(arguments: Any?, events: EventChannel.EventSink?) {
         Log.i(
             this::class.simpleName,
@@ -53,7 +57,6 @@ class MainActivity: FlutterActivity(), EventChannel.StreamHandler {
         BleChannelHelper.addEventSink(arguments as String?, events)
     }
 
-    /// Interface - EventChannel.StreamHandler
     override fun onCancel(arguments: Any?) {
         Log.i(
             this::class.simpleName,
