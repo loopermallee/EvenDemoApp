@@ -30,10 +30,10 @@ Future<void> main() async {
   // ✅ Load saved ChatGPT API key at startup
   await ChatGPTService.init();
 
-  // ✅ Initialize notification listener
+  // ✅ Initialize notification listener (Android)
   NotificationService.init();
 
-  // ✅ Ensure gesture mappings exist (load or defaults)
+  // ✅ Ensure gesture mappings exist (defaults if none saved)
   await GestureMappingService.loadMapping();
 
   runApp(const EvenDemoApp());
@@ -127,7 +127,7 @@ class EvenDemoApp extends StatelessWidget {
         ),
       ),
       builder: (context, child) {
-        // ✅ Global overlay HUD
+        // ✅ Global overlay HUD (AI replies + notifications)
         return Stack(
           children: [
             child ?? const SizedBox.shrink(),
