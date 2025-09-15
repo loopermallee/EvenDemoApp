@@ -11,6 +11,7 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
+  bool _hasSavedKey = false;
 
   @override
   void initState() {
@@ -18,37 +19,38 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _loadApiKey();
   }
 
-  /// 🔑 Load saved API key on screen open
   Future<void> _loadApiKey() async {
     final prefs = await SharedPreferences.getInstance();
     final savedKey = prefs.getString("chatgpt_api_key");
+
     if (savedKey != null && savedKey.isNotEmpty) {
       setState(() {
-        _apiKeyController.text = savedKey;
-        ChatGPTService.apiKey = savedKey;
+        _hasSavedKey = true;
+        // ✅ Instead of showing the real key, show a glitchy placeholder
+        _apiKeyController.text = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒";
       });
     }
   }
 
-  /// 💾 Save key persistently
   Future<void> _saveApiKey() async {
     final key = _apiKeyController.text.trim();
-    if (key.isEmpty) {
+
+    if (key.isEmpty || key == "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒") {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("⚠️ Please enter a valid API key")),
+        const SnackBar(content: Text("⚠️ Please enter a valid API Key")),
       );
       return;
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("chatgpt_api_key", key);
+    await ChatGPTService.setApiKey(key);
 
     setState(() {
-      ChatGPTService.apiKey = key;
+      _hasSavedKey = true;
+      _apiKeyController.text = "▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒▒"; // ✅ Show glitch placeholder
     });
 
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ API Key saved")),
+      const SnackBar(content: Text("✅ API Key saved & in use")),
     );
   }
 
@@ -64,12 +66,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
           children: [
             TextField(
               controller: _apiKeyController,
-              obscureText: true, // hide API key
-              decoration: const InputDecoration(
+              obscureText: false, // ✅ show placeholder as text, not dots
+              style: const TextStyle(
+                fontFamily: 'PixelFont',
+                color: Colors.greenAccent,
+              ),
+              decoration: InputDecoration(
                 labelText: "Enter ChatGPT API Key",
                 hintText: "sk-xxxx...",
+                helperText: _hasSavedKey
+                    ? "🔒 Key is saved & active (hidden for security)"
+                    : "Enter a new API key to activate",
               ),
-              style: theme.textTheme.bodyLarge,
             ),
             const SizedBox(height: 16),
             ElevatedButton(
