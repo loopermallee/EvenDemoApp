@@ -13,6 +13,10 @@
     <!-- ✅ Allow foreground service so glasses stay connected even on lockscreen -->
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE"/>
 
+    <!-- ✅ Needed for listening to phone notifications -->
+    <uses-permission android:name="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+        tools:ignore="ProtectedPermissions"/>
+
     <application
         android:label="demo_ai_even"
         android:name="${applicationName}"
@@ -50,6 +54,16 @@
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="connectedDevice|dataSync" />
+
+        <!-- ✅ Notification listener for syncing phone notifications to HUD -->
+        <service
+            android:name=".NotificationService"
+            android:label="Even Notification Service"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
     </application>
 
     <!-- 🔹 Required for text processing visibility -->
