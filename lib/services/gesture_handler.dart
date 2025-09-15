@@ -12,6 +12,7 @@ class GestureHandler {
   static int _currentPage = 0;
   static Timer? _autoTimer;
   static int _countdown = 0;
+  static bool _blinkOn = true; // ✅ blinking state
 
   /// Triggered when a gesture is detected (from BLE or emulator).
   static Future<void> onGesture(String gesture) async {
@@ -81,7 +82,13 @@ class GestureHandler {
   /// Format page with counter + countdown
   static String _formatPage() {
     final pageText = _pages[_currentPage];
-    return "$pageText   [${_currentPage + 1}/${_pages.length}] ⏳$_countdown";
+
+    // ✅ Blink effect in last 2 seconds
+    final countdownDisplay = (_countdown <= 2 && !_blinkOn)
+        ? "⏳ " // show only icon when blink-off
+        : "⏳$_countdown";
+
+    return "$pageText   [${_currentPage + 1}/${_pages.length}] $countdownDisplay";
   }
 
   /// Start countdown timer
@@ -93,14 +100,22 @@ class GestureHandler {
     final seconds = (textLength / 40).clamp(3, 7).toInt(); // 3–7 seconds window
 
     _countdown = seconds;
-    _autoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      _countdown--;
-      _showHUD(_formatPage());
+    _blinkOn = true;
 
+    _autoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
       if (_countdown <= 0) {
         timer.cancel();
         _showNextPage();
+        return;
       }
+
+      // ✅ toggle blink state in last 2 seconds
+      if (_countdown <= 2) {
+        _blinkOn = !_blinkOn;
+      }
+
+      _showHUD(_formatPage());
+      _countdown--;
     });
   }
 
