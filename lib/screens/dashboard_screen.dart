@@ -8,8 +8,9 @@ import 'teleprompt_screen.dart';
 import 'ai_screen.dart';
 import 'transcribe_screen.dart';
 import 'todo_screen.dart';
-import 'commute_screen.dart';
+import 'commute_screen.dart';  // ✅ renamed bus timing → commute
 import 'notifications_screen.dart';
+import 'settings_screen.dart'; // ✅ NEW
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -27,7 +28,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
     "Transcribe",
     "To-Do",
     "Commute",
-    "Notifications"
+    "Notifications",
+    "Settings"   // ✅ added here
   ];
 
   double brightness = 50;
@@ -91,6 +93,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case "Notifications":
         Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
         break;
+      case "Settings":   // ✅ NEW
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+        break;
     }
   }
 
@@ -104,13 +109,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           border: Border.all(color: Colors.greenAccent, width: 2),
           color: Colors.black,
         ),
-        child: Text(
-          tile,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            fontFamily: "PixelFont",
-            color: Colors.greenAccent,
-          ),
-        ),
+        child: Text(tile, style: theme.textTheme.bodyLarge),
       ),
     );
   }
@@ -120,11 +119,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("📟 DASHBOARD"),
-        backgroundColor: Colors.black,
-      ),
-      backgroundColor: Colors.black,
+      appBar: AppBar(title: const Text("📟 DASHBOARD")),
       body: Column(
         children: [
           // Brightness control
@@ -134,11 +129,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 Text(
                   "☀ BRIGHTNESS",
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    fontFamily: "PixelFont",
-                    color: Colors.greenAccent,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
                 ),
                 Slider(
                   min: 0,
@@ -155,7 +146,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
           ),
 
-          // Tiles (reorderable & persistent)
+          // Tiles (reorderable)
           Expanded(
             child: ReorderableListView(
               padding: const EdgeInsets.all(16),
@@ -171,14 +162,4 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 for (final tile in tiles)
                   Padding(
                     key: ValueKey(tile),
-                    padding: const EdgeInsets.symmetric(vertical: 8),
-                    child: _buildTile(tile),
-                  ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
+                    padding: const EdgeInsets.symmetric(vertical:
