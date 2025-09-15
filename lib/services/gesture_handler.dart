@@ -2,80 +2,119 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-/// Handles tap gestures coming from glasses (via BLE or simulated).
-/// Also manages HUD overlay with paging + auto-advance.
+/// Handles tap gestures coming from glasses (via BLE or simulated for now).
+/// Also shows a retro HUD overlay on screen.
 class GestureHandler {
   static final ValueNotifier<String?> hudMessage = ValueNotifier(null);
 
-  // Internal state for paged HUD
+  // Paging state
   static List<String> _pages = [];
   static int _currentPage = 0;
-  static Timer? _pageTimer;
+  static Timer? _autoTimer;
+  static int _countdown = 0;
 
   /// Triggered when a gesture is detected (from BLE or emulator).
   static Future<void> onGesture(String gesture) async {
-    // Load mapping from SharedPreferences
+    // 🔹 If pages are active, gestures control HUD navigation
+    if (_pages.isNotEmpty) {
+      if (gesture == "right") {
+        _showNextPage();
+        return;
+      } else if (gesture == "left") {
+        _showPrevPage();
+        return;
+      } else if (gesture == "double_right") {
+        _clearPagedHUD();
+        return;
+      }
+    }
+
+    // 🔹 Otherwise, fall back to tile launching
     final prefs = await SharedPreferences.getInstance();
     final action = prefs.getString("gesture_$gesture") ?? _defaultMapping[gesture];
 
     // Show gesture first
-    showHUD(_gestureSymbols[gesture] ?? gesture);
+    _showHUD(_gestureSymbols[gesture] ?? gesture);
 
     // Then show launching
     await Future.delayed(const Duration(milliseconds: 800));
-    showHUD("Launching $action...");
+    _showHUD("Launching $action...");
 
     // TODO: actually launch tile / screen here
     await Future.delayed(const Duration(seconds: 1));
-    clearHUD();
+    _clearHUD();
   }
 
-  /// Show single HUD message
-  static void showHUD(String message) {
-    _stopPaging();
+  /// Show retro HUD message
+  static void _showHUD(String message) {
     hudMessage.value = message;
   }
 
-  /// Show paged HUD messages
-  static void showPagedHUD(dynamic messages) {
-    _stopPaging();
-    _pages = messages is String ? [messages] : List<String>.from(messages);
+  /// Show paginated HUD
+  static void showPagedHUD(List<String> pages) {
+    _pages = pages;
     _currentPage = 0;
-    _showPage();
-
-    // Auto-advance timer
-    _pageTimer = Timer.periodic(const Duration(seconds: 4), (timer) {
-      nextPage();
-    });
+    _startCountdown();
+    _showHUD(_formatPage());
   }
 
-  /// Move to next page (auto or tap)
-  static void nextPage() {
-    if (_pages.isEmpty) return;
+  /// Go to next page
+  static void _showNextPage() {
     if (_currentPage < _pages.length - 1) {
       _currentPage++;
-      _showPage();
+      _startCountdown();
+      _showHUD(_formatPage());
     } else {
-      clearHUD();
+      _clearPagedHUD();
     }
   }
 
-  /// Show current page with countdown indicator
-  static void _showPage() {
-    if (_pages.isEmpty) return;
-    final secondsLeft = 4; // default auto-advance
-    hudMessage.value = "${_pages[_currentPage]}\n\n⏳ $secondsLeft sec...";
+  /// Go to previous page
+  static void _showPrevPage() {
+    if (_currentPage > 0) {
+      _currentPage--;
+      _startCountdown();
+      _showHUD(_formatPage());
+    }
   }
 
-  /// Clear HUD + stop paging
-  static void clearHUD() {
-    _stopPaging();
+  /// Format page with counter + countdown
+  static String _formatPage() {
+    final pageText = _pages[_currentPage];
+    return "$pageText   [${_currentPage + 1}/${_pages.length}] ⏳$_countdown";
+  }
+
+  /// Start countdown timer
+  static void _startCountdown() {
+    _autoTimer?.cancel();
+
+    // Adjust time based on text length (shorter text = faster flip)
+    final textLength = _pages[_currentPage].length;
+    final seconds = (textLength / 40).clamp(3, 7).toInt(); // 3–7 seconds window
+
+    _countdown = seconds;
+    _autoTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      _countdown--;
+      _showHUD(_formatPage());
+
+      if (_countdown <= 0) {
+        timer.cancel();
+        _showNextPage();
+      }
+    });
+  }
+
+  /// Clear HUD after paging
+  static void _clearPagedHUD() {
+    _autoTimer?.cancel();
+    _pages = [];
+    _currentPage = 0;
     hudMessage.value = null;
   }
 
-  static void _stopPaging() {
-    _pageTimer?.cancel();
-    _pageTimer = null;
+  /// Clear simple HUD
+  static void _clearHUD() {
+    hudMessage.value = null;
   }
 
   /// Default mapping
@@ -84,6 +123,9 @@ class GestureHandler {
     "double": "Translate",
     "triple": "Commute",
     "long": "Teleprompt",
+    "left": "Navigate",
+    "right": "AI",
+    "double_right": "Close",
   };
 
   /// HUD-friendly gesture symbols
@@ -92,5 +134,8 @@ class GestureHandler {
     "double": "•• Double Tap",
     "triple": "••• Triple Tap",
     "long": "⌛ Hold",
+    "left": "⬅ Left Tap",
+    "right": "➡ Right Tap",
+    "double_right": "⏹ Double Right",
   };
 }
