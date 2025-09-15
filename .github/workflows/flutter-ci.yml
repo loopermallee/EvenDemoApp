@@ -31,12 +31,16 @@ jobs:
           path: |
             ~/.pub-cache
             .dart_tool
-          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}-v3
+          key: ${{ runner.os }}-pub-${{ hashFiles('pubspec.yaml') }}-v2
           restore-keys: |
             ${{ runner.os }}-pub-
 
       - name: Install dependencies
-        run: flutter pub get
+        run: flutter pub get --no-precompile
+
+      # ✅ New: Check for dependency issues (logs only, does not fail CI)
+      - name: Check for dependency issues
+        run: flutter pub outdated --mode=null-safety || true
 
       # Debug build
       - name: Build Android APK (Debug)
@@ -58,13 +62,13 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # Always merge logs
+      # Always merge logs (ensures build-log.txt exists)
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
           cat debug-build-log.txt release-build-log.txt > build-log.txt
 
-      # Always create an issue body (proper expansion)
+      # Always create an issue body (with safe fallback if no errors found)
       - name: Create formatted issue body
         if: failure()
         run: |
