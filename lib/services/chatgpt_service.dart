@@ -7,7 +7,7 @@ class ChatGPTService {
   static const String _model = "gpt-4o-mini"; // lightweight, good for real-time
   static String apiKey = "";
 
-  // ✅ Track personality rotation
+  // ✅ Alternate between Ershin and Fou-Lu
   static bool _useErshin = true;
 
   /// 🔑 Initialize service (load saved API key)
@@ -27,28 +27,32 @@ class ChatGPTService {
   }
 
   /// 🤖 Ask ChatGPT with alternating Ershin / Fou-Lu personalities
-  static Future<String> askChatGPT(String query) async {
+  /// Returns structured response with speaker + pages
+  static Future<Map<String, dynamic>> askChatGPT(String query) async {
     if (apiKey.isEmpty) {
-      return "⚠️ API key missing. Please update in Settings.";
+      return {
+        "speaker": "⚠️",
+        "pages": ["API key missing. Please update in Settings."]
+      };
     }
 
     // Pick personality
     final isErshin = _useErshin;
-    final persona = isErshin ? "Ershin" : "Fou-Lu";
+    final speaker = isErshin ? "Ershin" : "Fou-Lu";
 
     final systemPrompt = isErshin
         ? """
 You are Ershin from Breath of Fire IV.
-- Speak oddly and humorously, but **always give clear useful info first**.
-- Keep weirdness short, like an afterthought.
-- IMPORTANT: Limit your reply to **3-4 sentences maximum**.
-        """
+- Always give the clear, useful info FIRST.
+- Then, add short, odd or humorous remarks (nonsense is fine).
+- IMPORTANT: Limit reply to **3-4 short sentences maximum**.
+"""
         : """
 You are Fou-Lu from Breath of Fire IV.
-- Speak in a solemn, archaic style.
-- Give direct, clear answers but wrapped in mysticism.
-- IMPORTANT: Limit your reply to **3-4 sentences maximum**.
-        """;
+- Speak in solemn, archaic style.
+- Wrap clear answers in mysticism.
+- IMPORTANT: Limit reply to **3-4 short sentences maximum**.
+""";
 
     // Toggle persona for next request
     _useErshin = !_useErshin;
@@ -75,24 +79,57 @@ You are Fou-Lu from Breath of Fire IV.
 
       if (response.statusCode == 200) {
         final data = response.data;
-        String text = data["choices"][0]["message"]["content"]?.trim() ?? "⚠️ No response content";
+        String text = data["choices"][0]["message"]["content"]?.trim() ??
+            "⚠️ No response content";
 
-        // ✅ HUD safety filter: trim long text
-        if (text.length > 250) {
-          text = text.substring(0, 247) + "...";
+        // ✅ Trim overly long replies
+        if (text.length > 400) {
+          text = text.substring(0, 397) + "...";
         }
 
-        // ✅ Add retro visual flair
-        if (isErshin) {
-          return "[Ershin]: ✧ $text ✧";
-        } else {
-          return "[Fou-Lu]: ~ $text ~";
-        }
+        // ✅ Split into “pages” for HUD readability
+        final pages = _splitIntoPages(text);
+
+        // ✅ Add retro speaker tag styling
+        return {
+          "speaker": speaker,
+          "pages": pages.map((p) {
+            return isErshin ? "[Ershin]: ✧ $p ✧" : "[Fou-Lu]: ~ $p ~";
+          }).toList(),
+        };
       } else {
-        return "⚠️ API Error: ${response.statusCode}";
+        return {
+          "speaker": "⚠️",
+          "pages": ["API Error: ${response.statusCode}"]
+        };
       }
     } catch (e) {
-      return "⚠️ ChatGPT request failed: $e";
+      return {
+        "speaker": "⚠️",
+        "pages": ["ChatGPT request failed: $e"]
+      };
     }
+  }
+
+  /// ✂️ Break long replies into pages of ~120 chars max
+  static List<String> _splitIntoPages(String text) {
+    const int maxLen = 120;
+    final words = text.split(" ");
+    final pages = <String>[];
+    var buffer = StringBuffer();
+
+    for (var word in words) {
+      if ((buffer.length + word.length + 1) > maxLen) {
+        pages.add(buffer.toString().trim());
+        buffer.clear();
+      }
+      buffer.write("$word ");
+    }
+
+    if (buffer.isNotEmpty) {
+      pages.add(buffer.toString().trim());
+    }
+
+    return pages;
   }
 }
