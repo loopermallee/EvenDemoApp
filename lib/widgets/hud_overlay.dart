@@ -16,14 +16,22 @@ class HUDOverlay extends StatelessWidget {
 
         return Positioned.fill(
           child: Container(
-            color: Colors.black.withOpacity(0.6), // HUD dark overlay
+            color: Colors.black.withOpacity(0.6), // semi-transparent overlay
             alignment: Alignment.center,
             child: Text(
               message,
+              textAlign: TextAlign.center,
               style: theme.textTheme.bodyLarge?.copyWith(
                 fontSize: 18,
                 fontWeight: FontWeight.bold,
                 color: Colors.greenAccent,
+                shadows: const [
+                  Shadow(
+                    blurRadius: 8,
+                    color: Colors.green,
+                    offset: Offset(0, 0),
+                  )
+                ],
               ),
             ),
           ),
