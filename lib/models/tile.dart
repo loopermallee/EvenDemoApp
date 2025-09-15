@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:convert';
 
 class Tile {
   final String id;
@@ -19,7 +20,6 @@ class Tile {
     required this.order,
   });
 
-  // Convert to Map for saving
   Map<String, dynamic> toMap() {
     return {
       'id': id,
@@ -31,7 +31,8 @@ class Tile {
     };
   }
 
-  // Restore from Map
+  String toJson() => jsonEncode(toMap());
+
   factory Tile.fromMap(Map<String, dynamic> map, Widget screen) {
     return Tile(
       id: map['id'],
@@ -42,5 +43,9 @@ class Tile {
       visible: map['visible'],
       order: map['order'],
     );
+  }
+
+  factory Tile.fromJson(String source, Widget screen) {
+    return Tile.fromMap(jsonDecode(source), screen);
   }
 }
