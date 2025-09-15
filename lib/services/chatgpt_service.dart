@@ -1,14 +1,28 @@
 import 'dart:convert';
 import 'package:dio/dio.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ChatGPTService {
   static const String _baseUrl = "https://api.openai.com/v1/chat/completions";
-  static const String _model = "gpt-4o-mini"; // lightweight, good for real-time
-  static String apiKey = ""; // 🔑 ENTER YOUR API KEY HERE
+  static const String _model = "gpt-4o-mini"; // lightweight, real-time model
 
+  /// Save API key
+  static Future<void> saveApiKey(String key) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString("chatgpt_api_key", key);
+  }
+
+  /// Load API key
+  static Future<String?> loadApiKey() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getString("chatgpt_api_key");
+  }
+
+  /// Ask ChatGPT
   static Future<String> askChatGPT(String query) async {
-    if (apiKey.isEmpty) {
-      return "⚠️ API key missing. Please update ChatGPTService.apiKey.";
+    final apiKey = await loadApiKey();
+    if (apiKey == null || apiKey.isEmpty) {
+      return "⚠️ API key missing. Please set it in Settings.";
     }
 
     try {
