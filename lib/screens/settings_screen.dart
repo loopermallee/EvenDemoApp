@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import '../services/chatgpt_service.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -15,39 +14,26 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
+    // Load saved API key into text field when opening settings
     _loadApiKey();
   }
 
   Future<void> _loadApiKey() async {
-    final prefs = await SharedPreferences.getInstance();
-    final savedKey = prefs.getString("chatgpt_api_key");
-    if (savedKey != null && savedKey.isNotEmpty) {
+    final savedKey = await ChatGPTService.loadApiKey();
+    if (mounted) {
       setState(() {
-        _apiKeyController.text = savedKey;
-        ChatGPTService.apiKey = savedKey;
+        _apiKeyController.text = savedKey ?? "";
       });
     }
   }
 
   Future<void> _saveApiKey() async {
-    final key = _apiKeyController.text.trim();
-    if (key.isEmpty) {
+    await ChatGPTService.setApiKey(_apiKeyController.text);
+    if (mounted) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("⚠️ Please enter a valid API key")),
+        const SnackBar(content: Text("✅ API Key saved")),
       );
-      return;
     }
-
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setString("chatgpt_api_key", key);
-
-    setState(() {
-      ChatGPTService.apiKey = key;
-    });
-
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text("✅ API Key saved successfully")),
-    );
   }
 
   @override
