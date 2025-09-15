@@ -1,7 +1,9 @@
 // lib/screens/ai_screen.dart
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import '../services/chatgpt_service.dart';
 import '../services/gesture_handler.dart';
+import '../services/stt_service.dart';
 
 class AIScreen extends StatefulWidget {
   const AIScreen({super.key});
@@ -34,9 +36,27 @@ class _AIScreenState extends State<AIScreen> {
     GestureHandler.showHUD("📟 ${reply.split("\n").first}");
   }
 
-  /// Placeholder for voice input (future STT integration)
+  /// 🎤 Voice input using STTService
   Future<void> _startVoiceInput() async {
-    _sendQuery("🎤 [Simulated voice input]");
+    setState(() {
+      isLoading = true;
+      response = "";
+    });
+
+    // ⚠️ TODO: Replace with real BLE mic audio
+    final fakeAudio = Uint8List.fromList([1, 2, 3, 4]);
+
+    final transcript = await STTService.transcribe(fakeAudio);
+
+    if (transcript == null || transcript.isEmpty) {
+      setState(() {
+        isLoading = false;
+        response = "⚠️ Could not understand audio";
+      });
+      return;
+    }
+
+    await _sendQuery(transcript);
   }
 
   @override
