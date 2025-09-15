@@ -1,16 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Import placeholder screens
+// Import placeholder + feature screens
 import 'translate_screen.dart';
 import 'navigate_screen.dart';
 import 'teleprompt_screen.dart';
-import 'ai_screen.dart';
+import 'ai_screen.dart';           // ✅ AI integrated
 import 'transcribe_screen.dart';
 import 'todo_screen.dart';
-import 'commute_screen.dart';  // ✅ renamed bus timing → commute
+import 'commute_screen.dart';     // ✅ renamed bus timing → commute
 import 'notifications_screen.dart';
-import 'settings_screen.dart'; // ✅ NEW
+import 'settings_screen.dart';    // ✅ added here
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
@@ -29,7 +29,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
     "To-Do",
     "Commute",
     "Notifications",
-    "Settings"   // ✅ added here
+    "Settings",   // ✅ added here
   ];
 
   double brightness = 50;
@@ -79,7 +79,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         Navigator.push(context, MaterialPageRoute(builder: (_) => const TelepromptScreen()));
         break;
       case "AI":
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const AIScreen()));
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const AIScreen())); // ✅
         break;
       case "Transcribe":
         Navigator.push(context, MaterialPageRoute(builder: (_) => const TranscribeScreen()));
@@ -93,8 +93,8 @@ class _DashboardScreenState extends State<DashboardScreen> {
       case "Notifications":
         Navigator.push(context, MaterialPageRoute(builder: (_) => const NotificationsScreen()));
         break;
-      case "Settings":   // ✅ NEW
-        Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen()));
+      case "Settings":
+        Navigator.push(context, MaterialPageRoute(builder: (_) => const SettingsScreen())); // ✅
         break;
     }
   }
@@ -162,4 +162,14 @@ class _DashboardScreenState extends State<DashboardScreen> {
                 for (final tile in tiles)
                   Padding(
                     key: ValueKey(tile),
-                    padding: const EdgeInsets.symmetric(vertical:
+                    padding: const EdgeInsets.symmetric(vertical: 8),
+                    child: _buildTile(tile),
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
