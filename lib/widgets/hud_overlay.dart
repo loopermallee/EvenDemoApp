@@ -1,11 +1,9 @@
+// lib/widgets/hud_overlay.dart
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../services/gesture_handler.dart';
 
-/// Retro HUD overlay with multi-page support + auto page advance.
-/// - Pages auto-advance dynamically (3–6s depending on text length)
-/// - User can tap left/right to flip manually
-/// - Clears automatically after last page
 class HUDOverlay extends StatefulWidget {
   const HUDOverlay({super.key});
 
@@ -14,138 +12,195 @@ class HUDOverlay extends StatefulWidget {
 }
 
 class _HUDOverlayState extends State<HUDOverlay> {
-  Timer? _autoPageTimer;
-  int _remainingSeconds = 5;
+  List<String> _pages = [];
+  int _currentPage = 0;
+  String _displayedText = "";
+  double _opacity = 0.0;
+
+  Timer? _textTimer;
+  Timer? _countdownTimer;
+  int _charIndex = 0;
+  int _countdown = 0;
+  bool _isManual = false; // ✅ track manual control
 
   @override
-  void dispose() {
-    _cancelTimer();
-    super.dispose();
+  void initState() {
+    super.initState();
+
+    // 🔄 Listen for HUD messages
+    GestureHandler.hudMessage.listen((msg) {
+      if (msg == null || msg.isEmpty) {
+        _hideHUD();
+      } else {
+        _showHUD(msg);
+      }
+    });
+
+    // 🔄 Listen for gesture overrides
+    GestureHandler.onNextPage = _nextPage;
+    GestureHandler.onPrevPage = _prevPage;
+    GestureHandler.onCloseHUD = _hideHUD;
   }
 
-  void _startAutoAdvance() {
-    _cancelTimer();
+  /// Split into RPG-style pages (~120 chars per page)
+  List<String> _paginate(String text) {
+    final words = text.split(' ');
+    List<String> pages = [];
+    String buffer = "";
 
-    // ⏳ Adjust countdown based on text length
-    final text = GestureHandler.currentPage ?? "";
-    if (text.length < 60) {
-      _remainingSeconds = 3; // short message
-    } else if (text.length < 150) {
-      _remainingSeconds = 4; // medium
-    } else {
-      _remainingSeconds = 6; // long message
+    for (final word in words) {
+      if ((buffer + word).length > 120) {
+        pages.add(buffer.trim());
+        buffer = "";
+      }
+      buffer += "$word ";
     }
+    if (buffer.isNotEmpty) {
+      pages.add(buffer.trim());
+    }
+    return pages;
+  }
 
-    _autoPageTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      if (!mounted) return;
-      setState(() {
-        _remainingSeconds--;
-      });
-      if (_remainingSeconds <= 0) {
-        GestureHandler.nextPage();
-        if (GestureHandler.isHUDActive) {
-          _startAutoAdvance(); // restart for next page
-        }
+  void _showHUD(String text) {
+    _pages = _paginate(text);
+    _currentPage = 0;
+    _isManual = false;
+    _startPage(_pages[_currentPage]);
+    setState(() => _opacity = 1.0); // fade in
+  }
+
+  void _startPage(String pageText) {
+    setState(() {
+      _displayedText = "";
+      _charIndex = 0;
+    });
+
+    _textTimer?.cancel();
+    _textTimer = Timer.periodic(const Duration(milliseconds: 35), (timer) {
+      if (_charIndex < pageText.length) {
+        setState(() {
+          _displayedText += pageText[_charIndex];
+          _charIndex++;
+        });
+      } else {
+        timer.cancel();
+        if (!_isManual) _startCountdown(_estimateTime(pageText));
       }
     });
   }
 
-  void _cancelTimer() {
-    _autoPageTimer?.cancel();
-    _autoPageTimer = null;
+  void _startCountdown(int seconds) {
+    _countdown = seconds;
+    _countdownTimer?.cancel();
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
+      if (_countdown <= 0) {
+        _countdownTimer?.cancel();
+        if (_currentPage < _pages.length - 1) {
+          _nextPage();
+        } else {
+          _hideHUD();
+        }
+      } else {
+        setState(() => _countdown--);
+      }
+    });
   }
 
-  void _onTapLeft() {
-    GestureHandler.prevPage();
-    _startAutoAdvance();
+  int _estimateTime(String text) {
+    if (text.length < 60) return 3;
+    if (text.length < 150) return 5;
+    return 8;
   }
 
-  void _onTapRight() {
-    GestureHandler.nextPage();
-    if (GestureHandler.isHUDActive) {
-      _startAutoAdvance();
+  void _nextPage() {
+    if (_currentPage < _pages.length - 1) {
+      _isManual = true;
+      _countdownTimer?.cancel();
+      _currentPage++;
+      _startPage(_pages[_currentPage]);
+    } else {
+      _hideHUD();
     }
+  }
+
+  void _prevPage() {
+    if (_currentPage > 0) {
+      _isManual = true;
+      _countdownTimer?.cancel();
+      _currentPage--;
+      _startPage(_pages[_currentPage]);
+    }
+  }
+
+  void _hideHUD() {
+    _textTimer?.cancel();
+    _countdownTimer?.cancel();
+    setState(() {
+      _opacity = 0.0; // fade out
+      _pages = [];
+      _displayedText = "";
+      _currentPage = 0;
+      _isManual = false;
+    });
+  }
+
+  @override
+  void dispose() {
+    _textTimer?.cancel();
+    _countdownTimer?.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    if (_pages.isEmpty && _opacity == 0.0) {
+      return const SizedBox.shrink();
+    }
 
-    return ValueListenableBuilder<List<String>?>(
-      valueListenable: GestureHandler.hudPages,
-      builder: (context, pages, _) {
-        if (pages == null || pages.isEmpty) {
-          _cancelTimer();
-          return const SizedBox.shrink();
-        }
-
-        if (_autoPageTimer == null) {
-          _startAutoAdvance();
-        }
-
-        final currentText = GestureHandler.currentPage ?? "";
-        final pageIndicator = GestureHandler.pageIndicator();
-
-        return Positioned.fill(
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapUp: (details) {
-              final width = MediaQuery.of(context).size.width;
-              if (details.localPosition.dx < width / 2) {
-                _onTapLeft();
-              } else {
-                _onTapRight();
-              }
-            },
-            child: Container(
-              color: Colors.black.withOpacity(0.7),
-              alignment: Alignment.center,
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  // Text page
-                  Expanded(
-                    child: SingleChildScrollView(
-                      child: Text(
-                        currentText,
-                        textAlign: TextAlign.center,
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          fontSize: 18,
-                          color: Colors.greenAccent,
-                          fontWeight: FontWeight.bold,
-                          letterSpacing: 1,
-                        ),
-                      ),
+    return IgnorePointer(
+      ignoring: true, // HUD is passive overlay
+      child: AnimatedOpacity(
+        opacity: _opacity,
+        duration: const Duration(milliseconds: 400),
+        child: Container(
+          alignment: Alignment.bottomCenter,
+          padding: const EdgeInsets.all(12),
+          child: Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.black.withOpacity(0.8),
+              border: Border.all(color: Colors.greenAccent, width: 2),
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // Text
+                Text(
+                  _displayedText,
+                  style: const TextStyle(
+                    color: Colors.greenAccent,
+                    fontSize: 14,
+                    fontFamily: 'PixelFont',
+                    height: 1.3,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                // Countdown
+                if (_pages.length > 1 && _countdown > 0 && !_isManual)
+                  Text(
+                    "Next page in $_countdown…",
+                    style: const TextStyle(
+                      color: Colors.greenAccent,
+                      fontSize: 10,
+                      fontFamily: 'PixelFont',
                     ),
                   ),
-
-                  const SizedBox(height: 12),
-
-                  // Footer: page indicator + countdown
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        pageIndicator, // e.g. (1/3)
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.greenAccent,
-                        ),
-                      ),
-                      Text(
-                        "[${_remainingSeconds}s]",
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: Colors.greenAccent.withOpacity(0.8),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+              ],
             ),
           ),
-        );
-      },
+        ),
+      ),
     );
   }
 }
