@@ -12,7 +12,7 @@ class BLEService {
   /// Scan for BLE devices
   Future<List<BluetoothDevice>> scanForDevices() async {
     final results = <BluetoothDevice>[];
-    final scanResults = await _flutterBlue.startScan(timeout: const Duration(seconds: 5));
+    await _flutterBlue.startScan(timeout: const Duration(seconds: 5));
 
     await for (final result in _flutterBlue.scanResults) {
       results.add(result.device);
@@ -27,11 +27,11 @@ class BLEService {
     await device.connect(autoConnect: false);
     connectedDevice = device;
 
-    // ✅ Start foreground service
+    // ✅ Start foreground service (keeps BLE alive on lockscreen)
     try {
       await _serviceChannel.invokeMethod("startForegroundService");
     } catch (e) {
-      print("⚠️ Failed to start service: $e");
+      print("⚠️ Failed to start foreground service: $e");
     }
   }
 
@@ -44,7 +44,7 @@ class BLEService {
       // ✅ Stop foreground service
       await _serviceChannel.invokeMethod("stopForegroundService");
     } catch (e) {
-      print("⚠️ Failed to stop service: $e");
+      print("⚠️ Failed to stop foreground service: $e");
     }
   }
 
@@ -56,5 +56,14 @@ class BLEService {
       return connectedDevice;
     }
     return null;
+  }
+
+  /// ✅ Force ensure connection (calls Kotlin BleManager.ensureConnected)
+  Future<void> ensureConnected() async {
+    try {
+      await _serviceChannel.invokeMethod("ensureConnected");
+    } catch (e) {
+      print("⚠️ Failed to ensure reconnect: $e");
+    }
   }
 }
