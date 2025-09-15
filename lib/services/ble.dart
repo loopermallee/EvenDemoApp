@@ -73,8 +73,12 @@ class BLEService {
 
     final audioBytes = Uint8List.fromList(_micBuffer);
 
-    // ✅ Send audio to EvenAI pipeline (STT → ChatGPT → HUD)
-    await evenAI.startListening(audioBytes);
+    try {
+      // ✅ Send audio to EvenAI pipeline (STT → ChatGPT → HUD)
+      await evenAI.startListening(audioBytes);
+    } catch (e) {
+      print("⚠️ Failed to process audio: $e");
+    }
 
     _micBuffer.clear();
   }
@@ -89,6 +93,7 @@ class BLEService {
       await _serviceChannel.invokeMethod("stopForegroundService");
     } catch (e) {
       print("⚠️ Failed to stop service: $e");
+      await evenAI.stopEvenAIByOS();
     }
   }
 
