@@ -9,13 +9,40 @@ class LoadingScreen extends StatefulWidget {
 }
 
 class _LoadingScreenState extends State<LoadingScreen> {
+  final String _bootText = "BOOTING EVEN OS...";
+  String _visibleText = "";
+  int _charIndex = 0;
+  bool _cursorVisible = true;
+
   @override
   void initState() {
     super.initState();
 
-    // Simulate retro boot delay (2.5s), then go to Dashboard
-    Timer(const Duration(seconds: 3), () {
-      Navigator.pushReplacementNamed(context, '/dashboard');
+    // Start typing effect
+    Timer.periodic(const Duration(milliseconds: 120), (timer) {
+      if (_charIndex < _bootText.length) {
+        setState(() {
+          _visibleText += _bootText[_charIndex];
+          _charIndex++;
+        });
+      } else {
+        timer.cancel();
+        // After full text is shown, wait then go to dashboard
+        Timer(const Duration(seconds: 2), () {
+          Navigator.pushReplacementNamed(context, '/dashboard');
+        });
+      }
+    });
+
+    // Blinking cursor effect
+    Timer.periodic(const Duration(milliseconds: 500), (timer) {
+      if (!mounted) {
+        timer.cancel();
+        return;
+      }
+      setState(() {
+        _cursorVisible = !_cursorVisible;
+      });
     });
   }
 
@@ -30,7 +57,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
         color: Colors.black,
         child: Center(
           child: Text(
-            "BOOTING EVEN OS...",
+            "$_visibleText${_cursorVisible ? ' █' : ''}", // retro cursor
             style: theme.textTheme.bodyLarge?.copyWith(
               fontSize: 16,
               color: Colors.greenAccent,
