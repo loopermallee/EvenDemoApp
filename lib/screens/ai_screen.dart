@@ -28,15 +28,21 @@ class _AIScreenState extends State<AIScreen> {
       response = "";
     });
 
-    final reply = await ChatGPTService.askChatGPT(query);
+    // ✅ Fix: handle Map instead of String
+    final result = await ChatGPTService.askChatGPT(query);
+    final speaker = result["speaker"] as String;
+    final pages = (result["pages"] as List<String>);
+    final reply = pages.join("\n\n");
 
     setState(() {
       isLoading = false;
       response = reply;
     });
 
-    // ✅ Show AI reply in HUD overlay
-    GestureHandler.showHUD("📟 ${reply.split("\n").first}");
+    // ✅ Show first page in HUD
+    if (pages.isNotEmpty) {
+      GestureHandler.showHUD("📟 $speaker: ${pages.first}");
+    }
   }
 
   /// 🎤 Start voice input via BLE mic
@@ -46,7 +52,7 @@ class _AIScreenState extends State<AIScreen> {
       response = "";
     });
 
-    // Stop BLE mic recording → flush buffer into EvenAI → STT → ChatGPT → HUD
+    // Stop BLE mic recording → flush buffer into EvenAI → ChatGPT → HUD
     await bleService.stopMicRecording();
 
     setState(() {
