@@ -12,7 +12,7 @@ import 'screens/navigate_screen.dart';
 import 'screens/teleprompt_screen.dart';
 import 'screens/ai_screen.dart';
 import 'screens/transcribe_screen.dart';
-import 'screens/todo_screen.dart';
+import 'screens/todo_screen.dart'; // ✅ Make sure class is TodoScreen
 import 'screens/commute_screen.dart';
 import 'screens/notifications_screen.dart';
 import 'screens/gesture_settings_screen.dart'; // ✅ NEW import
@@ -152,7 +152,7 @@ class EvenDemoApp extends StatelessWidget {
         '/teleprompt': (context) => const TelepromptScreen(),
         '/ai': (context) => const AIScreen(),
         '/transcribe': (context) => const TranscribeScreen(),
-        '/todo': (context) => const ToDoScreen(),
+        '/todo': (context) => const TodoScreen(), // ✅ fixed casing
         '/commute': (context) => const CommuteScreen(),
         '/notifications': (context) => const NotificationsScreen(),
 
