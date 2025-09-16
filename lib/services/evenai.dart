@@ -59,13 +59,13 @@ class EvenAI extends GetxController {
 
     // 🧹 Clear HUD when AI session starts
     GestureHandler.hudMessage.value = null;
-    print("🧹 HUD cleared for AI session");
+    print("[HUD] 🧹 Cleared for AI session");
 
     await BleManager.invokeMethod("startEvenAI");
     await openEvenAIMic();
     startRecordingTimer();
 
-    // Directly process this audioBytes once recording ends
+    print("[AI] ▶️ Listening started, processing audio...");
     await _processAudio(audioBytes);
   }
 
@@ -73,7 +73,8 @@ class EvenAI extends GetxController {
     _recordingTimer = Timer(Duration(seconds: maxRecordingDuration), () {
       if (isReceivingAudio.value) {
         clear();
-        GestureHandler.showHUD("⚠️ Mic timeout");
+        GestureHandler.showPagedHUD("⚠️ Mic timeout");
+        print("[BLE] ⏱️ Mic timeout reached");
       } else {
         _recordingTimer?.cancel();
         _recordingTimer = null;
@@ -96,50 +97,42 @@ class EvenAI extends GetxController {
     // ✅ Skip STT — we’re already receiving processed data from glasses
     combinedText = "[Audio received: ${audioBytes.length} bytes]";
     lastTranscript.value = combinedText;
+    print("[BLE] 🎤 Captured ${audioBytes.length} bytes of audio");
 
     // Step 2: ChatGPT
+    print("[GPT] 📤 Sending to ChatGPT: $combinedText");
     final result = await ChatGPTService.askChatGPT(combinedText);
 
     final speaker = result["speaker"] as String;
     final pages = (result["pages"] as List<String>);
     final reply = pages.join("\n\n");
 
-    GestureHandler.hudMessage.value = "$speaker: $reply";
+    GestureHandler.showPagedHUD("$speaker: $reply");
     isSyncing.value = false;
 
+    print("[GPT] 📥 ChatGPT replied ($speaker): $reply");
     saveQuestionItem(combinedText, reply);
     startSendReply(reply);
 
     // ✅ Mark HUD ready after AI reply
     isRunning.value = false;
-    print("✅ AI session finished, HUD ready for notifications");
+    print("[AI] ✅ Session finished, HUD ready for notifications");
   }
 
   void saveQuestionItem(String title, String content) {
     final controller = Get.find<EvenaiModelController>();
     controller.addItem(title, content);
-  }
-
-  int getTotalPages() {
-    if (list.isEmpty) return 0;
-    if (list.length < 6) return 1;
-    int div = list.length ~/ 5;
-    int rest = list.length % 5;
-    return rest == 0 ? div : div + 1;
-  }
-
-  int getCurrentPage() {
-    if (_currentLine == 0) return 1;
-    int div = _currentLine ~/ 5;
-    int rest = _currentLine % 5;
-    return rest == 0 ? div + 1 : div + 2;
+    print("[AI] 💾 Saved Q&A pair to history");
   }
 
   Future startSendReply(String text) async {
     _currentLine = 0;
     list = EvenAIDataMethod.measureStringList(text);
 
-    if (list.isEmpty) return;
+    if (list.isEmpty) {
+      print("[HUD] ⚠️ Empty reply, nothing to send");
+      return;
+    }
 
     String firstScreen =
         list.sublist(0, min(5, list.length)).map((s) => '$s\n').join();
@@ -147,10 +140,12 @@ class EvenAI extends GetxController {
 
     if (isSuccess) {
       _currentLine = 0;
+      print("[HUD] 📟 First reply sent to HUD");
       await updateReplyToOSByTimer();
     } else {
       clear();
-      GestureHandler.showHUD("⚠️ Failed to send reply");
+      GestureHandler.showPagedHUD("⚠️ Failed to send reply");
+      print("[HUD] ❌ Failed to send reply");
     }
   }
 
@@ -160,6 +155,7 @@ class EvenAI extends GetxController {
 
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) async {
       if (_isManual) {
+        print("[HUD] 🛑 Manual navigation, stopping auto-paging");
         _stopCountdown();
         _timer?.cancel();
         _timer = null;
@@ -170,6 +166,7 @@ class EvenAI extends GetxController {
       sendReplys = list.sublist(_currentLine);
 
       if (_currentLine > list.length - 1) {
+        print("[HUD] ✅ Reached end of pages");
         _stopCountdown();
         _timer?.cancel();
         _timer = null;
@@ -184,17 +181,11 @@ class EvenAI extends GetxController {
           0,
         );
 
-        // ✅ Start dynamic countdown
         int seconds = _estimateDisplayTime(mergedStr);
+        print("[HUD] ⏳ Next page in $seconds sec");
         _startCountdown(seconds);
       }
     });
-  }
-
-  int _estimateDisplayTime(String text) {
-    if (text.length < 60) return 3; // short
-    if (text.length < 150) return 5; // medium
-    return 8; // long
   }
 
   void _startCountdown(int seconds) {
@@ -217,73 +208,6 @@ class EvenAI extends GetxController {
     GestureHandler.hudMessage.value = null;
   }
 
-  void nextPageByTouchpad() {
-    if (!isRunning.value) return;
-    _isManual = true;
-    _stopCountdown();
-    _timer?.cancel();
-    _timer = null;
-
-    if (_currentLine + 5 <= list.length - 1) {
-      _currentLine += 5;
-      updateReplyToOSByManual();
-    }
-  }
-
-  void lastPageByTouchpad() {
-    if (!isRunning.value) return;
-    _isManual = true;
-    _stopCountdown();
-    _timer?.cancel();
-    _timer = null;
-
-    if (_currentLine - 5 >= 0) {
-      _currentLine -= 5;
-      updateReplyToOSByManual();
-    }
-  }
-
-  Future updateReplyToOSByManual() async {
-    if (_currentLine < 0 || _currentLine > list.length - 1) return;
-    sendReplys = list.sublist(_currentLine);
-    var mergedStr =
-        sendReplys.sublist(0, min(5, sendReplys.length)).map((s) => '$s\n').join();
-    await sendEvenAIReply(mergedStr, 0x01, 0x50, 0);
-  }
-
-  Future stopEvenAIByOS() async {
-    isRunning.value = false;
-    clear();
-    await BleManager.invokeMethod("stopEvenAI");
-  }
-
-  void clear() {
-    isReceivingAudio.value = false;
-    isRunning.value = false;
-    _isManual = false;
-    _currentLine = 0;
-    _recordingTimer?.cancel();
-    _recordingTimer = null;
-    _timer?.cancel();
-    _timer = null;
-    _countdownTimer?.cancel();
-    _countdownTimer = null;
-    audioDataBuffer.clear();
-    audioData = null;
-    list = [];
-    sendReplys = [];
-    durationS = 0;
-    retryCount = 0;
-  }
-
-  Future openEvenAIMic() async {
-    final (micStartMs, isStartSucc) = await Proto.micOn(lr: "R");
-    if (!isStartSucc && isReceivingAudio.value && isRunning.value) {
-      await Future.delayed(const Duration(seconds: 1));
-      await openEvenAIMic();
-    }
-  }
-
   Future<bool> sendEvenAIReply(String text, int type, int status, int pos) async {
     if (!isRunning.value) return false;
 
@@ -295,10 +219,16 @@ class EvenAI extends GetxController {
       max_page_num: getTotalPages(),
     );
 
-    if (!isSuccess && retryCount < maxRetry) {
+    if (isSuccess) {
+      print("[HUD] 📟 Sent reply chunk → $text");
+    } else if (retryCount < maxRetry) {
       retryCount++;
+      print("[HUD] 🔄 Retry $retryCount sending reply...");
       return await sendEvenAIReply(text, type, status, pos);
+    } else {
+      print("[HUD] ❌ Failed after max retries");
     }
+
     retryCount = 0;
     return isSuccess;
   }
