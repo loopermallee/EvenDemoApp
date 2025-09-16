@@ -15,6 +15,7 @@ import 'screens/transcribe_screen.dart';
 import 'screens/todo_screen.dart';
 import 'screens/commute_screen.dart';
 import 'screens/notifications_screen.dart';
+import 'screens/gesture_settings_screen.dart'; // ✅ NEW import
 
 // ✅ Services
 import 'services/chatgpt_service.dart';
@@ -154,6 +155,9 @@ class EvenDemoApp extends StatelessWidget {
         '/todo': (context) => const ToDoScreen(),
         '/commute': (context) => const CommuteScreen(),
         '/notifications': (context) => const NotificationsScreen(),
+
+        // ✅ Gesture Settings
+        '/gesture-settings': (context) => const GestureSettingsScreen(),
       },
     );
   }
