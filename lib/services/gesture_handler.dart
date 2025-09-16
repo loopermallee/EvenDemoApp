@@ -15,6 +15,12 @@ class GestureHandler {
     hudMessage.value = message;
   }
 
+  /// Wrapper for backward compatibility with old code
+  static void showPagedHUD(String message) {
+    // Forward to showHUD (pagination handled inside HUDOverlay)
+    showHUD(message);
+  }
+
   /// Close HUD overlay
   static void closeHUD() {
     hudMessage.value = null;
@@ -33,17 +39,17 @@ class GestureHandler {
         onCloseHUD?.call();
         break;
 
-      // 🔹 You can extend these:
-      case "singleTap": // default AI launch
+      // 🔹 Default gesture bindings
+      case "singleTap":
         showHUD("🤖 Launching AI...");
         break;
-      case "doubleTap": // default Translate
+      case "doubleTap":
         showHUD("🌐 Launching Translate...");
         break;
-      case "tripleTap": // default Commute
+      case "tripleTap":
         showHUD("🚌 Launching Commute...");
         break;
-      case "longHold": // default Teleprompt
+      case "longHold":
         showHUD("📜 Launching Teleprompt...");
         break;
 
