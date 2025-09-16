@@ -1,9 +1,12 @@
 // lib/services/ble.dart
 import 'dart:async';
 import 'dart:typed_data';
+import 'dart:io';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
+import 'package:path_provider/path_provider.dart';
+import 'package:permission_handler/permission_handler.dart'; // ✅ for storage permission
 import 'package:demo_ai_even/services/evenai.dart';
 import 'package:demo_ai_even/services/gesture_handler.dart';
 
@@ -14,14 +17,38 @@ class BLEService {
   final FlutterBluePlus _flutterBlue = FlutterBluePlus.instance;
   BluetoothDevice? connectedDevice;
 
-  BluetoothCharacteristic? _micCharacteristic;
-  BluetoothCharacteristic? _gestureCharacteristic;
-
   final List<int> _micBuffer = [];
-
   final EvenAI evenAI = Get.put(EvenAI());
 
-  /// Scan for BLE devices
+  File? _logFile;
+
+  Future<void> _initLogFile() async {
+    // ✅ Request permission first
+    if (await Permission.storage.request().isGranted) {
+      final dir = Directory("/storage/emulated/0/Download");
+      if (!await dir.exists()) {
+        await dir.create(recursive: true);
+      }
+      _logFile = File("${dir.path}/ble_debug_log.txt");
+    } else {
+      // fallback → sandbox storage
+      final dir = await getApplicationDocumentsDirectory();
+      _logFile = File("${dir.path}/ble_debug_log.txt");
+    }
+
+    if (!await _logFile!.exists()) {
+      await _logFile!.create(recursive: true);
+    }
+  }
+
+  Future<void> _writeLog(String message) async {
+    await _initLogFile();
+    final ts = DateTime.now().toIso8601String();
+    await _logFile!.writeAsString("[$ts] $message\n",
+        mode: FileMode.append, flush: true);
+    print(message);
+  }
+
   Future<List<BluetoothDevice>> scanForDevices() async {
     final results = <BluetoothDevice>[];
     await _flutterBlue.startScan(timeout: const Duration(seconds: 5));
@@ -34,93 +61,50 @@ class BLEService {
     return results;
   }
 
-  /// Connect + discover UUIDs
   Future<void> connectToDevice(BluetoothDevice device) async {
     await device.connect(autoConnect: false);
     connectedDevice = device;
 
-    // ✅ Try foreground service
     try {
       await _serviceChannel.invokeMethod("startForegroundService");
     } catch (e) {
-      print("⚠️ Foreground service failed: $e");
+      await _writeLog("⚠️ Failed to start foreground service: $e");
     }
 
-    // Discover services & dump UUIDs
     List<BluetoothService> services = await device.discoverServices();
-    print("🔍 Found ${services.length} services");
+    await _writeLog("🔍 Found ${services.length} services");
 
     for (var service in services) {
-      print("📡 Service UUID: ${service.uuid}");
+      await _writeLog("🟢 Service UUID: ${service.uuid}");
 
       for (var char in service.characteristics) {
-        print("   ↳ Characteristic UUID: ${char.uuid} "
-            "[props: read=${char.properties.read}, "
+        await _writeLog("   ↳ Characteristic UUID: ${char.uuid}, "
+            "read=${char.properties.read}, "
             "write=${char.properties.write}, "
-            "notify=${char.properties.notify}]");
+            "notify=${char.properties.notify}, "
+            "indicate=${char.properties.indicate}");
 
-        // 🎤 If looks like mic
-        if (char.properties.notify && char.uuid.toString().contains("abcd")) {
-          _micCharacteristic = char;
-          await _micCharacteristic!.setNotifyValue(true);
-          _micCharacteristic!.value.listen((data) {
-            _micBuffer.addAll(data);
+        if (char.properties.notify) {
+          await char.setNotifyValue(true);
+          char.value.listen((data) async {
+            await _writeLog("📡 [${char.uuid}] ${data.length} bytes: $data");
           });
-          print("🎤 Mic characteristic subscribed → ${char.uuid}");
-        }
-
-        // 🕹️ If looks like gestures
-        if (char.properties.notify && char.uuid.toString().contains("gest")) {
-          _gestureCharacteristic = char;
-          await _gestureCharacteristic!.setNotifyValue(true);
-          _gestureCharacteristic!.value.listen((data) {
-            try {
-              final gestureCode = _decodeGesture(Uint8List.fromList(data));
-              print("🕹️ Gesture detected: $gestureCode");
-              GestureHandler.handleGesture(gestureCode);
-            } catch (e) {
-              print("⚠️ Failed to parse gesture: $e");
-            }
-          });
-          print("🕹️ Gesture characteristic subscribed → ${char.uuid}");
         }
       }
     }
   }
 
-  String _decodeGesture(Uint8List data) {
-    if (data.isEmpty) return "unknown";
-    switch (data[0]) {
-      case 0x01:
-        return "singleTapRight";
-      case 0x02:
-        return "singleTapLeft";
-      case 0x03:
-        return "doubleTapRight";
-      case 0x04:
-        return "doubleTapLeft";
-      case 0x05:
-        return "tripleTap";
-      case 0x06:
-        return "longHold";
-      default:
-        return "unknown";
-    }
-  }
-
   Future<void> stopMicRecording() async {
     if (_micBuffer.isEmpty) {
-      print("⚠️ No audio captured");
+      await _writeLog("⚠️ No audio captured");
       return;
     }
-
     final audioBytes = Uint8List.fromList(_micBuffer);
     try {
       await evenAI.startListening(audioBytes);
     } catch (e) {
-      print("⚠️ Failed to process audio: $e");
+      await _writeLog("⚠️ Failed to process audio: $e");
     }
-
     _micBuffer.clear();
   }
 
@@ -130,26 +114,8 @@ class BLEService {
       connectedDevice = null;
       await _serviceChannel.invokeMethod("stopForegroundService");
     } catch (e) {
-      print("⚠️ Failed to stop service: $e");
+      await _writeLog("⚠️ Failed to stop service: $e");
       await evenAI.stopEvenAIByOS();
-    }
-  }
-
-  Future<BluetoothDevice?> reconnectLastDevice() async {
-    final connected = await _flutterBlue.connectedDevices;
-    if (connected.isNotEmpty) {
-      connectedDevice = connected.first;
-      return connectedDevice;
-    }
-    return null;
-  }
-
-  Future<void> ensureConnected() async {
-    try {
-      await _serviceChannel.invokeMethod("ensureConnected");
-      print("🔄 Ensuring BLE connection via ForegroundService");
-    } catch (e) {
-      print("⚠️ Failed to ensure reconnect: $e");
     }
   }
 }
