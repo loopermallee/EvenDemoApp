@@ -62,7 +62,7 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ✅ Upload APKs as GitHub artifacts (for download in Actions tab)
+      # ✅ Upload APKs as GitHub artifacts (Actions tab only)
       - name: Upload Debug APK
         if: always()
         uses: actions/upload-artifact@v4
@@ -70,7 +70,7 @@ jobs:
           name: app-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Upload Release APK
+      - name: Upload Release APK (Artifact copy)
         if: always()
         uses: actions/upload-artifact@v4
         with:
@@ -87,7 +87,7 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # ✅ Auto-create GitHub Release with APKs
+      # ✅ Auto-create GitHub Release (only Release APK)
       - name: Create GitHub Release
         if: success()
         uses: softprops/action-gh-release@v1
@@ -100,13 +100,11 @@ jobs:
             - Commit: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
 
             Includes:
-            - Debug APK
-            - Release APK
+            - Release APK (recommended for install)
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           files: |
-            build/app/outputs/flutter-apk/app-debug.apk
             build/app/outputs/flutter-apk/app-release.apk
 
       # Merge logs
