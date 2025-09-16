@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get --no-precompile
 
-      # ✅ New: Check for dependency issues (logs only, does not fail CI)
+      # ✅ Check for dependency issues (logs only, does not fail CI)
       - name: Check for dependency issues
         run: flutter pub outdated --mode=null-safety || true
 
@@ -62,26 +62,41 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ✅ Upload APKs as GitHub artifacts
-      - name: Upload Debug APK
+      # ✅ Upload artifacts for Actions tab
+      - name: Upload Debug APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Upload Release APK
+      - name: Upload Release APK (artifact)
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # Always merge logs (ensures build-log.txt exists)
+      # ✅ Upload APKs to GitHub Release (so you see them in "Assets")
+      - name: Upload Release APK to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/app-release.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload Debug APK to GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: build/app/outputs/flutter-apk/app-debug.apk
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Merge logs
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
           cat debug-build-log.txt release-build-log.txt > build-log.txt
 
-      # Always create an issue body (with safe fallback if no errors found)
+      # Create issue body if failure
       - name: Create formatted issue body
         if: failure()
         run: |
@@ -145,22 +160,3 @@ jobs:
                 });
               }
             }
-
-      # ✅ Auto-create GitHub Release (Release APK only)
-      - name: Create GitHub Release
-        if: success()
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest-build
-          name: "Even Demo App (Latest Build)"
-          body: |
-            🚀 Automated build from CI
-            - Branch: ${{ github.ref_name }}
-            - Commit: [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
-
-            Includes:
-            - Release APK (recommended for install)
-          files: |
-            build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
