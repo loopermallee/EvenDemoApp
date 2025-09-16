@@ -29,10 +29,10 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
       response = "🤖 Thinking...";
     });
 
-    final result = await evenAI.processTranscript(query);
+    await evenAI.processTranscript(query);
 
     if (mounted) {
-      setState(() => response = "Manual: $query\n\n$result");
+      setState(() => response = "Manual: $query\n\n${evenAI.lastTranscript.value}");
     }
   }
 
@@ -53,8 +53,10 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
       response = "🤖 Processing...";
     });
 
-    // Simulate receiving a transcript (in real case, Kotlin plugin sends it)
-    await evenAI.processTranscript("Example transcript from glasses");
+    // Use EvenAI transcript (updated by BLE/Kotlin plugin or manual query)
+    if (evenAI.lastTranscript.value.isEmpty) {
+      await evenAI.processTranscript("⚠️ No transcript received from glasses");
+    }
 
     if (mounted) {
       setState(() => response = evenAI.lastTranscript.value);
