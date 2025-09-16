@@ -1,9 +1,9 @@
 // lib/screens/transcribe_screen.dart
-import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../services/evenai.dart';
 import '../services/gesture_handler.dart';
+import '../ble_manager.dart';
 
 class TranscribeScreen extends StatefulWidget {
   const TranscribeScreen({super.key});
@@ -16,24 +16,58 @@ class _TranscribeScreenState extends State<TranscribeScreen> {
   final EvenAI _evenAI = Get.put(EvenAI());
   String _transcript = "";
   bool _isProcessing = false;
+  bool _isRecording = false;
 
-  Future<void> _handleTranscription(Uint8List audioBytes) async {
+  Future<void> _startRecording() async {
     setState(() {
       _isProcessing = true;
+      _isRecording = true;
       _transcript = "";
     });
 
-    await _evenAI.startListening(audioBytes);
+    try {
+      // ✅ Start mic capture from BLE
+      await BleManager.invokeMethod("startEvenAI");
 
+      GestureHandler.showHUD("🎙 Listening...");
+
+      // EvenAI will automatically handle audio chunks
+      // and populate transcript when finished.
+    } catch (e) {
+      GestureHandler.showHUD("⚠️ Mic error: $e");
+      setState(() {
+        _isProcessing = false;
+        _isRecording = false;
+      });
+    }
+  }
+
+  Future<void> _stopRecording() async {
     setState(() {
-      _isProcessing = false;
-      _transcript = _evenAI.lastTranscript.value.isNotEmpty
-          ? _evenAI.lastTranscript.value
-          : "⚠️ No speech detected";
+      _isRecording = false;
     });
 
-    // ✅ Show result on HUD too
-    GestureHandler.showHUD("🗣 $_transcript");
+    try {
+      // ✅ Stop BLE mic
+      await BleManager.invokeMethod("stopEvenAI");
+
+      // Grab transcript from EvenAI
+      final transcript = _evenAI.lastTranscript.value;
+
+      setState(() {
+        _isProcessing = false;
+        _transcript = transcript.isNotEmpty
+            ? transcript
+            : "⚠️ No speech detected";
+      });
+
+      GestureHandler.showHUD("🗣 $_transcript");
+    } catch (e) {
+      GestureHandler.showHUD("⚠️ Stop mic error: $e");
+      setState(() {
+        _isProcessing = false;
+      });
+    }
   }
 
   @override
@@ -45,14 +79,12 @@ class _TranscribeScreenState extends State<TranscribeScreen> {
         child: Column(
           children: [
             ElevatedButton(
-              onPressed: () async {
-                // For now, simulate with empty audio
-                // Replace with actual recorded Uint8List from BLE mic
-                await _handleTranscription(Uint8List(0));
-              },
-              child: _isProcessing
-                  ? const Text("⏳ Processing…")
-                  : const Text("Start Transcription"),
+              onPressed: _isRecording ? _stopRecording : _startRecording,
+              child: Text(
+                _isRecording
+                    ? "⏹ Stop Recording"
+                    : (_isProcessing ? "⏳ Processing…" : "🎤 Start Recording"),
+              ),
             ),
             const SizedBox(height: 20),
             Expanded(
