@@ -77,13 +77,23 @@ jobs:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
 
+      # 🔥 Delete old Releases & tags before creating a new one
+      - name: Delete old releases
+        if: success()
+        uses: dev-drprasad/delete-older-releases@v0.3.3
+        with:
+          keep_latest: 0   # delete ALL old releases
+          delete_tags: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       # ✅ Auto-create GitHub Release with APKs
       - name: Create GitHub Release
         if: success()
         uses: softprops/action-gh-release@v1
         with:
-          tag_name: build-${{ github.run_number }}
-          name: "Even Demo App Build #${{ github.run_number }}"
+          tag_name: latest-build
+          name: "Even Demo App (Latest Build)"
           body: |
             🚀 Automated build from CI
             - Branch: ${{ github.ref_name }}
