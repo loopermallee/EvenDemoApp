@@ -4,8 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
-import 'package:demo_ai_even/services/evenai.dart'; // ✅ EvenAI pipeline
-import 'package:demo_ai_even/services/gesture_handler.dart'; // ✅ Gesture handler
+import 'package:demo_ai_even/services/evenai.dart';
+import 'package:demo_ai_even/services/gesture_handler.dart';
 
 class BLEService {
   static const _serviceChannel =
@@ -18,8 +18,6 @@ class BLEService {
   BluetoothCharacteristic? _gestureCharacteristic;
 
   final List<int> _micBuffer = []; // 🎤 buffer incoming audio packets
-
-  // ✅ Use GetX to manage EvenAI instance
   final EvenAI evenAI = Get.put(EvenAI());
 
   /// Scan for BLE devices
@@ -35,12 +33,11 @@ class BLEService {
     return results;
   }
 
-  /// Connect to device + discover services + subscribe to mic + gestures
+  /// Connect + discover services + subscribe to mic + gestures
   Future<void> connectToDevice(BluetoothDevice device) async {
     await device.connect(autoConnect: false);
     connectedDevice = device;
 
-    // ✅ Start foreground service (keeps BLE alive on lockscreen)
     try {
       await _serviceChannel.invokeMethod("startForegroundService");
     } catch (e) {
@@ -53,30 +50,30 @@ class BLEService {
       for (var char in service.characteristics) {
         final uuid = char.uuid.toString().toLowerCase();
 
-        // 🎤 Mic audio notifications
-        if (char.properties.notify && uuid.contains("abcd")) {
+        // 🎤 Mic notifications (replace with real UUID!)
+        if (char.properties.notify && uuid.contains("mic")) {
           _micCharacteristic = char;
           await _micCharacteristic!.setNotifyValue(true);
 
-          _micCharacteristic!.value.listen((data) {
-            _micBuffer.addAll(data);
+          _micCharacteristic!.lastValueStream.listen((data) {
+            if (data.isNotEmpty) {
+              _micBuffer.addAll(data);
+            }
           });
 
           print("🎤 Mic characteristic subscribed");
         }
 
-        // 🕹️ Gesture notifications
+        // 🕹️ Gesture notifications (replace with real UUID!)
         if (char.properties.notify && uuid.contains("gest")) {
           _gestureCharacteristic = char;
           await _gestureCharacteristic!.setNotifyValue(true);
 
-          _gestureCharacteristic!.value.listen((data) {
-            try {
+          _gestureCharacteristic!.lastValueStream.listen((data) {
+            if (data.isNotEmpty) {
               final gestureCode = _decodeGesture(Uint8List.fromList(data));
               print("🕹️ Gesture detected: $gestureCode");
               GestureHandler.handleGesture(gestureCode);
-            } catch (e) {
-              print("⚠️ Failed to parse gesture: $e");
             }
           });
 
@@ -86,10 +83,26 @@ class BLEService {
     }
   }
 
+  /// Stop mic recording → flush buffer to EvenAI
+  Future<void> stopMicRecording() async {
+    if (_micBuffer.isEmpty) {
+      print("⚠️ No audio captured");
+      return;
+    }
+
+    final audioBytes = Uint8List.fromList(_micBuffer);
+    _micBuffer.clear(); // ✅ reset buffer immediately
+
+    try {
+      await evenAI.startListening(audioBytes);
+    } catch (e) {
+      print("⚠️ Failed to process audio: $e");
+    }
+  }
+
   /// Map raw BLE gesture byte → friendly string
   String _decodeGesture(Uint8List data) {
-    if (data.isEmpty) return "unknown";
-    switch (data[0]) {
+    switch (data.firstOrNull) {
       case 0x01:
         return "singleTapRight";
       case 0x02:
@@ -107,32 +120,11 @@ class BLEService {
     }
   }
 
-  /// Stop mic recording → flush buffer into EvenAI pipeline
-  Future<void> stopMicRecording() async {
-    if (_micBuffer.isEmpty) {
-      print("⚠️ No audio captured");
-      return;
-    }
-
-    final audioBytes = Uint8List.fromList(_micBuffer);
-
-    try {
-      // ✅ Send audio to EvenAI pipeline (STT → ChatGPT → HUD)
-      await evenAI.startListening(audioBytes);
-    } catch (e) {
-      print("⚠️ Failed to process audio: $e");
-    }
-
-    _micBuffer.clear();
-  }
-
-  /// Disconnect device + stop Foreground Service
+  /// Disconnect + stop Foreground Service
   Future<void> disconnectFromDevice(BluetoothDevice device) async {
     try {
       await device.disconnect();
       connectedDevice = null;
-
-      // ✅ Stop foreground service
       await _serviceChannel.invokeMethod("stopForegroundService");
     } catch (e) {
       print("⚠️ Failed to stop service: $e");
@@ -150,7 +142,7 @@ class BLEService {
     return null;
   }
 
-  /// ✅ Force ensure connection (calls Kotlin BleManager.ensureConnected)
+  /// Ensure connection (calls Kotlin side BleManager.ensureConnected)
   Future<void> ensureConnected() async {
     try {
       await _serviceChannel.invokeMethod("ensureConnected");
