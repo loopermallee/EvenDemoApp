@@ -1,16 +1,15 @@
 // lib/services/notification_service.dart
-import 'dart:async';
 import 'package:flutter/services.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'gesture_handler.dart';
-import 'evenai.dart';
+import 'package:get/get.dart';
 
 class NotificationService {
   static const _channel =
       MethodChannel("com.example.demo_ai_even/notifications");
 
-  static Timer? _clearTimer;
-  static final List<String> _pendingNotifications = [];
+  // ✅ Persistent notification count
+  static final RxInt notificationCount = 0.obs;
 
   static void init() {
     _channel.setMethodCallHandler((call) async {
@@ -19,55 +18,26 @@ class NotificationService {
         final enabled = prefs.getBool("notifications_enabled") ?? true;
 
         if (!enabled) {
-          print("🔕 Notifications disabled, skipping HUD message");
+          print("🔕 Notifications disabled, skipping HUD counter");
           return;
         }
 
         final msg = call.arguments as String;
         if (msg.isEmpty) return;
 
-        // If AI is running, hold notification
-        if (EvenAI().isRunning.value) {
-          _pendingNotifications.add(msg);
-          print("📥 Queued notification (AI active): $msg");
-          return;
-        }
+        // ✅ Increment counter
+        notificationCount.value++;
+        print("🔔 Notification received (count: ${notificationCount.value}) $msg");
 
-        // Otherwise show immediately
-        _showNotification(msg, 1);
+        // ✅ Also show latest notification briefly in HUD text
+        GestureHandler.showHUD("🔔 $msg");
       }
     });
   }
 
-  /// Called when AI finishes → show queued notifications
-  static void showPending() {
-    if (_pendingNotifications.isEmpty) return;
-
-    final count = _pendingNotifications.length;
-    final lastMsg = _pendingNotifications.last;
-    final display =
-        count > 1 ? "🔔($count) $lastMsg" : "🔔 $lastMsg";
-
-    GestureHandler.showHUD(display);
-    print("🔔 Restored notifications → HUD: $display");
-
-    _clearTimer?.cancel();
-    _clearTimer = Timer(const Duration(seconds: 6), () {
-      GestureHandler.hudMessage.value = null;
-      _pendingNotifications.clear();
-      print("🧹 Pending notifications cleared from HUD");
-    });
-  }
-
-  /// Helper: show a single notification
-  static void _showNotification(String msg, int count) {
-    final display = count > 1 ? "🔔($count) $msg" : "🔔 $msg";
-    GestureHandler.showHUD(display);
-
-    _clearTimer?.cancel();
-    _clearTimer = Timer(const Duration(seconds: 6), () {
-      GestureHandler.hudMessage.value = null;
-      print("🧹 Notification cleared from HUD");
-    });
+  /// Manually clear notifications (resets counter + HUD)
+  static void clearNotifications() {
+    notificationCount.value = 0;
+    print("🧹 Notifications cleared");
   }
 }
