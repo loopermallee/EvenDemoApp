@@ -1,42 +1,41 @@
+// android/app/build.gradle
+
 plugins {
     id "com.android.application"
-    id "kotlin-android"
+    id "org.jetbrains.kotlin.android"
     id "dev.flutter.flutter-gradle-plugin"
 }
 
 android {
-    namespace "com.loopermallee.evendemoapp"
-    compileSdk = 34   // ✅ modern syntax
+    namespace "com.example.demo_ai_even"
+    compileSdk 34  // ✅ Flutter 3.24.3 supports up to 34
 
     defaultConfig {
-        applicationId "com.loopermallee.evendemoapp"
-        minSdk = 23
-        targetSdk = 34
+        applicationId "com.example.demo_ai_even"
+        minSdk 23     // ✅ Flutter requires 23+
+        targetSdk 34  // ✅ Match compileSdk
         versionCode 1
         versionName "1.0"
-
-        multiDexEnabled true
     }
 
     buildTypes {
         release {
-            signingConfig null
-            minifyEnabled false
-            shrinkResources false
-            proguardFiles getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro"
-        }
-        debug {
+            // ✅ Default Flutter signing config
             signingConfig signingConfigs.debug
+            shrinkResources false
+            minifyEnabled false
+            // If you add ProGuard / R8 later, update rules here
         }
     }
 
+    // ✅ Ensure Java 17 compatibility
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     kotlinOptions {
-        jvmTarget = "11"
+        jvmTarget = "17"
     }
 }
 
@@ -45,6 +44,5 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk7:1.9.10"
-    implementation "androidx.multidex:multidex:2.0.1"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
 }
