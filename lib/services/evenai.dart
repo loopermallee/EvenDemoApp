@@ -58,6 +58,10 @@ class EvenAI extends GetxController {
     isRunning.value = true;
     _currentLine = 0;
 
+    // 🧹 Clear HUD when AI session starts
+    GestureHandler.hudMessage.value = null;
+    print("🧹 HUD cleared for AI session");
+
     await BleManager.invokeMethod("startEvenAI");
     await openEvenAIMic();
     startRecordingTimer();
@@ -97,6 +101,10 @@ class EvenAI extends GetxController {
       isSyncing.value = false;
       GestureHandler.showHUD("⚠️ No speech detected");
       startSendReply("No Speech Recognized");
+
+      // ✅ Mark HUD ready again
+      isRunning.value = false;
+      print("✅ AI finished (no speech), HUD ready for notifications");
       return;
     }
 
@@ -115,6 +123,10 @@ class EvenAI extends GetxController {
 
     saveQuestionItem(combinedText, reply);
     startSendReply(reply);
+
+    // ✅ Mark HUD ready after AI reply
+    isRunning.value = false;
+    print("✅ AI session finished, HUD ready for notifications");
   }
 
   void saveQuestionItem(String title, String content) {
