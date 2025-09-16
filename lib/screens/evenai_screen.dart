@@ -134,4 +134,25 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
 
             // ✅ Send button
             ElevatedButton(
-              onPressed:
+              onPressed: sendQuery,
+              child: const Text("SEND"),
+            ),
+            const SizedBox(height: 24),
+
+            // ✅ AI Response
+            Expanded(
+              child: SingleChildScrollView(
+                child: Text(
+                  response.isEmpty ? "No reply yet." : response,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: Colors.greenAccent,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
