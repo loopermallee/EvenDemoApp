@@ -49,12 +49,12 @@ class BleManager {
     switch (type) {
       case "mic_start":
         print("🎤 Mic START event from glasses");
-        EvenAI.get.startListening(Uint8List(0)); // dummy buffer
+        EvenAI.to.startListening(Uint8List(0)); // dummy buffer
         break;
       case "mic_stop":
         print("🛑 Mic STOP event from glasses");
         final transcript = event["transcript"] ?? "";
-        EvenAI.get.processTranscript(transcript);
+        EvenAI.to.processTranscript(transcript);
         break;
       default:
         print("⚠️ Unknown event: $event");
