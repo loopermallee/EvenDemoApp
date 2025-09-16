@@ -75,8 +75,8 @@ jobs:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # ✅ Create or update GitHub Release
-      - name: Create GitHub Release
+      # ✅ Create or update GitHub Release AND attach APKs
+      - name: Create GitHub Release with APKs
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest-build
@@ -84,23 +84,9 @@ jobs:
           body: "🚀 Automated build from CI"
           draft: false
           prerelease: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      # ✅ Attach APKs to GitHub Release
-      - name: Upload Release APK to GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest-build
-          files: build/app/outputs/flutter-apk/app-release.apk
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload Debug APK to GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: latest-build
-          files: build/app/outputs/flutter-apk/app-debug.apk
+          files: |
+            build/app/outputs/flutter-apk/app-release.apk
+            build/app/outputs/flutter-apk/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
