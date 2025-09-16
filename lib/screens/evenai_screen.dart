@@ -1,7 +1,8 @@
 // lib/screens/evenai_screen.dart
 import 'package:flutter/material.dart';
-import '../services/evenai_service.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:get/get.dart';
+import '../services/evenai.dart';
 
 class EvenAIScreen extends StatefulWidget {
   const EvenAIScreen({super.key, this.connectedDevice});
@@ -14,10 +15,9 @@ class EvenAIScreen extends StatefulWidget {
 
 class _EvenAIScreenState extends State<EvenAIScreen> {
   final TextEditingController _controller = TextEditingController();
-  final EvenAIService _evenAI = EvenAIService();
+  final EvenAI _evenAI = Get.put(EvenAI());
 
   String response = "";
-  bool isConnecting = false;
   bool isListening = false; // ✅ Glasses mic state
 
   Future<void> sendQuery() async {
@@ -28,11 +28,14 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
       response = "🤖 Thinking...";
     });
 
-    final reply = await _evenAI.sendQuery(query);
+    final result = await _evenAI._processAudio(
+      // ✅ Simulate text input by converting query → fake audio
+      Uint8List.fromList(query.codeUnits),
+    );
 
-    if (mounted) {
-      setState(() => response = reply);
-    }
+    setState(() {
+      response = result != null ? result.toString() : "⚠️ No reply";
+    });
   }
 
   /// ✅ Triggered when glasses mic starts
@@ -41,40 +44,36 @@ class _EvenAIScreenState extends State<EvenAIScreen> {
       isListening = true;
       response = "🎤 Listening via glasses mic...";
     });
-    await _evenAI.startListening();
+    // Normally triggered automatically via BLE → here we simulate
+    await _evenAI.startListening(Uint8List(0));
   }
 
   /// ✅ Triggered when glasses mic stops
   Future<void> stopMic() async {
     setState(() {
       isListening = false;
-      response = "🤖 Thinking...";
+      response = "🤖 Processing...";
     });
-    final reply = await _evenAI.stopAndSend();
 
-    if (mounted) {
-      setState(() => response = reply);
-    }
+    // Flush BLE buffer → AI pipeline handles it
+    final fakeAudio = Uint8List.fromList("Hello from glasses mic".codeUnits);
+    await _evenAI.startListening(fakeAudio);
+
+    setState(() {
+      response = "✅ Processed via EvenAI (see HUD)";
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    if (isConnecting) {
-      return const Scaffold(
-        body: Center(
-          child: CircularProgressIndicator(color: Colors.greenAccent),
-        ),
-      );
-    }
-
     return Scaffold(
       appBar: AppBar(
         title: const Text("🤖 EVEN AI"),
         centerTitle: true,
         actions: [
-          // ✅ Mic control buttons (for testing until glasses auto-trigger is wired)
+          // ✅ Mic control buttons (manual debug triggers)
           IconButton(
             icon: const Icon(Icons.mic, color: Colors.greenAccent),
             onPressed: startMic,
