@@ -1,7 +1,7 @@
+// lib/services/chatgpt_service.dart
 import 'dart:convert';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'gesture_handler.dart';
 
 class ChatGPTService {
   static const String _baseUrl = "https://api.openai.com/v1/chat/completions";
@@ -28,10 +28,12 @@ class ChatGPTService {
   }
 
   /// 🤖 Ask ChatGPT with alternating Ershin / Fou-Lu personalities
-  static Future<void> askChatGPT(String query) async {
+  static Future<Map<String, dynamic>> askChatGPT(String query) async {
     if (apiKey.isEmpty) {
-      GestureHandler.showPagedHUD("⚠️ API key missing. Please update in Settings.");
-      return;
+      return {
+        "speaker": "System",
+        "pages": ["⚠️ API key missing. Please update in Settings."]
+      };
     }
 
     // Pick personality
@@ -88,17 +90,22 @@ You are Fou-Lu from Breath of Fire IV.
         // ✅ Split into “pages” for HUD readability
         final pages = _splitIntoPages(text);
 
-        // ✅ Add retro speaker tags & send to HUD
-        GestureHandler.showPagedHUD(
-          pages.map((p) {
-            return isErshin ? "[Ershin]: ✧ $p ✧" : "[Fou-Lu]: ~ $p ~";
-          }).toList(),
-        );
+        // ✅ Return map (speaker + pages)
+        return {
+          "speaker": speaker,
+          "pages": pages,
+        };
       } else {
-        GestureHandler.showPagedHUD("⚠️ API Error: ${response.statusCode}");
+        return {
+          "speaker": "System",
+          "pages": ["⚠️ API Error: ${response.statusCode}"]
+        };
       }
     } catch (e) {
-      GestureHandler.showPagedHUD("⚠️ ChatGPT request failed: $e");
+      return {
+        "speaker": "Error",
+        "pages": ["⚠️ ChatGPT request failed: $e"]
+      };
     }
   }
 
