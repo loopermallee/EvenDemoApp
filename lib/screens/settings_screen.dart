@@ -13,11 +13,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
   bool _hasSavedKey = false;
   bool _editingKey = false;
+  bool _notificationsEnabled = true; // ✅ default ON
 
   @override
   void initState() {
     super.initState();
     _loadApiKey();
+    _loadNotificationSetting();
   }
 
   Future<void> _loadApiKey() async {
@@ -61,6 +63,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
       _editingKey = true;
       _apiKeyController.clear();
     });
+  }
+
+  Future<void> _loadNotificationSetting() async {
+    final prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _notificationsEnabled = prefs.getBool("notifications_enabled") ?? true;
+    });
+  }
+
+  Future<void> _toggleNotifications(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool("notifications_enabled", value);
+
+    setState(() {
+      _notificationsEnabled = value;
+    });
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(
+          value
+              ? "✅ Notifications will show on HUD"
+              : "🔕 Notifications disabled",
+        ),
+      ),
+    );
   }
 
   void _openGestureSettings() {
@@ -118,6 +146,21 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
             trailing: const Icon(Icons.arrow_forward_ios, color: Colors.greenAccent, size: 14),
             onTap: _openGestureSettings,
+          ),
+
+          const Divider(height: 32, thickness: 1, color: Colors.greenAccent),
+
+          // 🔔 Notifications toggle
+          SwitchListTile(
+            title: const Text(
+              "🔔 Notifications to HUD",
+              style: TextStyle(fontFamily: 'PixelFont', color: Colors.greenAccent),
+            ),
+            value: _notificationsEnabled,
+            activeColor: Colors.greenAccent,
+            inactiveThumbColor: Colors.grey,
+            inactiveTrackColor: Colors.grey.shade800,
+            onChanged: _toggleNotifications,
           ),
         ],
       ),
