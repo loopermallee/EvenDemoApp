@@ -15,12 +15,13 @@ import 'screens/transcribe_screen.dart';
 import 'screens/todo_screen.dart'; // ✅ Make sure class is TodoScreen
 import 'screens/commute_screen.dart';
 import 'screens/notifications_screen.dart';
-import 'screens/gesture_settings_screen.dart'; // ✅ NEW import
+import 'screens/gesture_settings_screen.dart';
 
 // ✅ Services
 import 'services/chatgpt_service.dart';
 import 'services/notification_service.dart';
 import 'services/gesture_mapping.dart';
+import 'services/ble_events.dart'; // ✅ NEW: EventChannel bridge
 
 // ✅ HUD overlay
 import 'widgets/hud_overlay.dart';
@@ -36,6 +37,9 @@ Future<void> main() async {
 
   // ✅ Ensure gesture mappings exist (defaults if none saved)
   await GestureMappingService.loadMapping();
+
+  // ✅ Listen for BLE mic/gesture events from native (Kotlin)
+  BLEEvents.startListening();
 
   runApp(const EvenDemoApp());
 }
@@ -152,7 +156,7 @@ class EvenDemoApp extends StatelessWidget {
         '/teleprompt': (context) => const TelepromptScreen(),
         '/ai': (context) => const AIScreen(),
         '/transcribe': (context) => const TranscribeScreen(),
-        '/todo': (context) => const TodoScreen(), // ✅ fixed casing
+        '/todo': (context) => const TodoScreen(),
         '/commute': (context) => const CommuteScreen(),
         '/notifications': (context) => const NotificationsScreen(),
 
