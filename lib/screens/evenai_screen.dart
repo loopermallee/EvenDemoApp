@@ -15,7 +15,7 @@ class EvenAIScreen extends StatefulWidget {
 
 class _EvenAIScreenState extends State<EvenAIScreen> {
   final TextEditingController _controller = TextEditingController();
-  final EvenAI evenAI = EvenAI.get;
+  final EvenAI evenAI = EvenAI.to;
 
   String response = "";
   bool isListening = false; // ✅ Glasses mic state
