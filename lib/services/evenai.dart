@@ -61,13 +61,15 @@ class EvenAI extends GetxController {
 
     await BleManager.invokeMethod("stopEvenAI");
 
-    // Step 1: ChatGPT
+    // ✅ Fix: handle Map from ChatGPTService
     final result = await ChatGPTService.askChatGPT(text);
     final speaker = result["speaker"] as String;
     final pages = (result["pages"] as List<String>);
     final reply = pages.join("\n\n");
 
-    GestureHandler.hudMessage.value = "$speaker: $reply";
+    // ✅ Show first page in HUD
+    GestureHandler.hudMessage.value =
+        pages.isNotEmpty ? "$speaker: ${pages.first}" : "$speaker: $reply";
 
     saveQuestionItem(text, reply);
     startSendReply(reply);
