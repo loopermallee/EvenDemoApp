@@ -1,5 +1,5 @@
 # .github/workflows/flutter-ci.yml
-name: Flutter CI (Build Debug + Release)
+name: Flutter CI (Debug Only)
 
 on:
   push:
@@ -30,11 +30,9 @@ jobs:
           cache: true
       - run: flutter pub get --no-precompile
 
+      # ✅ Build Debug APK only
       - name: Build Debug APK
         run: flutter build apk --debug 2>&1 | tee debug-build-log.txt
-
-      - name: Build Release APK
-        run: flutter build apk --release 2>&1 | tee release-build-log.txt
 
       # 🔍 Debugging step to confirm APK output
       - name: List generated APKs
@@ -49,26 +47,15 @@ jobs:
           retention-days: 30
           if-no-files-found: warn
 
-      # ✅ Upload Release APK
-      - name: Upload Release APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: app-release
-          path: build/app/outputs/flutter-apk/app-release.apk
-          retention-days: 30
-          if-no-files-found: warn
-
-      # ✅ Upload Build Logs
+      # ✅ Upload Build Logs (only debug log now)
       - name: Upload Logs
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
-          path: |
-            debug-build-log.txt
-            release-build-log.txt
+          path: debug-build-log.txt
           retention-days: 30
 
-      # ✅ Upload BLE Debug Log (from device log file if available)
+      # ✅ Upload BLE Debug Log (optional, device logs)
       - name: Upload BLE Debug Log
         uses: actions/upload-artifact@v4
         with:
