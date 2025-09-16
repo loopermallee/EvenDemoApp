@@ -1,4 +1,4 @@
-name: Flutter CI (Build Debug + Release)
+name: Flutter CI (Build Debug + Release, Universal APK)
 
 on:
   push:
@@ -30,44 +30,41 @@ jobs:
 
       - run: flutter pub get --no-precompile
 
-      - name: Build Debug APK
-        run: flutter build apk --debug 2>&1 | tee debug-build-log.txt
+      # 🔨 Debug build (Universal APK)
+      - name: Build Debug Universal APK
+        run: flutter build apk --debug --no-split-per-abi 2>&1 | tee debug-build-log.txt
 
-      - name: Build Release APK
-        run: flutter build apk --release 2>&1 | tee release-build-log.txt
+      # 🔨 Release build (Universal APK)
+      - name: Build Release Universal APK
+        run: flutter build apk --release --no-split-per-abi 2>&1 | tee release-build-log.txt
 
-      # 🔍 Expanded diagnostic to confirm APK paths
+      # 🔍 Show APKs created
       - name: List generated APKs
         run: |
-          echo "📂 Checking common APK output directories..."
-          ls -lh build/app/outputs/ || true
-          ls -lh build/app/outputs/flutter-apk/ || echo "⚠️ No APKs in flutter-apk/"
-          ls -lh build/app/outputs/apk/debug/ || echo "⚠️ No APKs in apk/debug/"
-          ls -lh build/app/outputs/apk/release/ || echo "⚠️ No APKs in apk/release/"
+          echo "📂 Checking APK output directory..."
+          ls -lh build/app/outputs/flutter-apk/ || echo "⚠️ APK directory missing"
 
-      # ✅ Upload Debug APK (check multiple possible paths)
-      - name: Upload Debug APK
+      # 📦 Upload Debug APK
+      - name: Upload Debug Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-debug
-          path: |
-            build/app/outputs/flutter-apk/app-debug.apk
-            build/app/outputs/apk/debug/app-debug.apk
+          name: app-debug-universal
+          path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
-      # ✅ Upload Release APK (check multiple possible paths)
-      - name: Upload Release APK
+      # 📦 Upload Release APK
+      - name: Upload Release Universal APK
         uses: actions/upload-artifact@v4
         with:
-          name: app-release
-          path: |
-            build/app/outputs/flutter-apk/app-release.apk
-            build/app/outputs/apk/release/app-release.apk
+          name: app-release-universal
+          path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: error
 
-      - name: Upload Logs
+      # 📦 Upload build logs (always)
+      - name: Upload Build Logs
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: build-logs
