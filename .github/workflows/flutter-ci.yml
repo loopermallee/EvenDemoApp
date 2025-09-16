@@ -38,7 +38,7 @@ jobs:
       - name: Install dependencies
         run: flutter pub get --no-precompile
 
-      # ✅ Check for dependency issues (logs only, does not fail CI)
+      # ✅ Log dependency status (non-blocking)
       - name: Check for dependency issues
         run: flutter pub outdated --mode=null-safety || true
 
@@ -62,23 +62,36 @@ jobs:
           flutter build apk --release 2>&1 | tee release-build-log.txt
           echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
-      # ✅ Upload artifacts for Actions tab
-      - name: Upload Debug APK (artifact)
+      # ✅ Upload APKs as GitHub artifacts (optional download via Actions tab)
+      - name: Upload Debug APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
 
-      - name: Upload Release APK (artifact)
+      - name: Upload Release APK Artifact
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
 
-      # ✅ Upload APKs to GitHub Release (so you see them in "Assets")
+      # ✅ Create or update GitHub Release
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: latest-build
+          name: "Latest Build"
+          body: "🚀 Automated build from CI"
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # ✅ Attach APKs to GitHub Release
       - name: Upload Release APK to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: latest-build
           files: build/app/outputs/flutter-apk/app-release.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,17 +99,18 @@ jobs:
       - name: Upload Debug APK to GitHub Release
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: latest-build
           files: build/app/outputs/flutter-apk/app-debug.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      # Merge logs
+      # ✅ Merge logs (ensures build-log.txt always exists)
       - name: Merge logs
         run: |
           touch debug-build-log.txt release-build-log.txt
           cat debug-build-log.txt release-build-log.txt > build-log.txt
 
-      # Create issue body if failure
+      # ✅ Auto-issue if build fails
       - name: Create formatted issue body
         if: failure()
         run: |
