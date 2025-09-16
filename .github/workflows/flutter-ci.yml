@@ -59,14 +59,16 @@ jobs:
         id: build_debug
         run: |
           set -o pipefail
-          flutter build apk --debug 2>&1 | tee debug-build-log.txt || echo "exit_code=$?" >> $GITHUB_OUTPUT
+          flutter build apk --debug 2>&1 | tee debug-build-log.txt
+        continue-on-error: true
 
       # Release build
       - name: Build Android APK (Release)
         id: build_release
         run: |
           set -o pipefail
-          flutter build apk --release 2>&1 | tee release-build-log.txt || echo "exit_code=$?" >> $GITHUB_OUTPUT
+          flutter build apk --release 2>&1 | tee release-build-log.txt
+        continue-on-error: true
 
       # ✅ Always merge logs
       - name: Merge logs
