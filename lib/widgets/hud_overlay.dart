@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../services/gesture_handler.dart';
+import '../services/notification_service.dart';
 
 class HUDOverlay extends StatefulWidget {
   const HUDOverlay({super.key});
@@ -154,52 +155,104 @@ class _HUDOverlayState extends State<HUDOverlay> {
   @override
   Widget build(BuildContext context) {
     if (_pages.isEmpty && _opacity == 0.0) {
-      return const SizedBox.shrink();
+      // Still show notification counter even if no HUD text
+      return Obx(() {
+        final count = NotificationService.notificationCount.value;
+        if (count == 0) return const SizedBox.shrink();
+        return Positioned(
+          top: 8,
+          right: 8,
+          child: Container(
+            padding: const EdgeInsets.all(4),
+            decoration: BoxDecoration(
+              border: Border.all(color: Colors.greenAccent, width: 1),
+              color: Colors.black,
+            ),
+            child: Text(
+              "🔔 $count",
+              style: const TextStyle(
+                fontFamily: 'PixelFont',
+                fontSize: 12,
+                color: Colors.greenAccent,
+              ),
+            ),
+          ),
+        );
+      });
     }
 
     return IgnorePointer(
       ignoring: true, // HUD is passive overlay
-      child: AnimatedOpacity(
-        opacity: _opacity,
-        duration: const Duration(milliseconds: 400),
-        child: Container(
-          alignment: Alignment.bottomCenter,
-          padding: const EdgeInsets.all(12),
-          child: Container(
-            width: double.infinity,
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.black.withOpacity(0.8),
-              border: Border.all(color: Colors.greenAccent, width: 2),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Text
-                Text(
-                  _displayedText,
-                  style: const TextStyle(
-                    color: Colors.greenAccent,
-                    fontSize: 14,
-                    fontFamily: 'PixelFont',
-                    height: 1.3,
-                  ),
+      child: Stack(
+        children: [
+          AnimatedOpacity(
+            opacity: _opacity,
+            duration: const Duration(milliseconds: 400),
+            child: Container(
+              alignment: Alignment.bottomCenter,
+              padding: const EdgeInsets.all(12),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black.withOpacity(0.8),
+                  border: Border.all(color: Colors.greenAccent, width: 2),
                 ),
-                const SizedBox(height: 8),
-                // Countdown
-                if (_pages.length > 1 && _countdown > 0 && !_isManual)
-                  Text(
-                    "Next page in $_countdown…",
-                    style: const TextStyle(
-                      color: Colors.greenAccent,
-                      fontSize: 10,
-                      fontFamily: 'PixelFont',
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // Text
+                    Text(
+                      _displayedText,
+                      style: const TextStyle(
+                        color: Colors.greenAccent,
+                        fontSize: 14,
+                        fontFamily: 'PixelFont',
+                        height: 1.3,
+                      ),
                     ),
-                  ),
-              ],
+                    const SizedBox(height: 8),
+                    // Countdown
+                    if (_pages.length > 1 && _countdown > 0 && !_isManual)
+                      Text(
+                        "Next page in $_countdown…",
+                        style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 10,
+                          fontFamily: 'PixelFont',
+                        ),
+                      ),
+                  ],
+                ),
+              ),
             ),
           ),
-        ),
+
+          // ✅ Persistent notification counter (top-right corner)
+          Positioned(
+            top: 8,
+            right: 8,
+            child: Obx(() {
+              final count = NotificationService.notificationCount.value;
+              if (count == 0) return const SizedBox.shrink();
+              return Container(
+                padding: const EdgeInsets.all(4),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.greenAccent, width: 1),
+                  color: Colors.black,
+                ),
+                child: Text(
+                  "🔔 $count",
+                  style: const TextStyle(
+                    fontFamily: 'PixelFont',
+                    fontSize: 12,
+                    color: Colors.greenAccent,
+                  ),
+                ),
+              );
+            }),
+          ),
+        ],
       ),
     );
   }
