@@ -8,7 +8,6 @@ import 'package:demo_ai_even/controllers/evenai_model_controller.dart';
 import 'package:demo_ai_even/services/chatgpt_service.dart';
 import 'package:demo_ai_even/services/proto.dart';
 import 'package:demo_ai_even/services/gesture_handler.dart';
-import 'package:demo_ai_even/services/stt_service.dart';
 import 'package:get/get.dart';
 import 'package:flutter/material.dart';
 
@@ -82,7 +81,7 @@ class EvenAI extends GetxController {
     });
   }
 
-  /// Internal pipeline: STT → ChatGPT → HUD
+  /// Internal pipeline: BLE Audio → ChatGPT → HUD
   Future<void> _processAudio(Uint8List audioBytes) async {
     int currentTime = DateTime.now().millisecondsSinceEpoch;
     if (currentTime - _lastStopTime < stopTimeGap) return;
@@ -94,22 +93,9 @@ class EvenAI extends GetxController {
 
     await BleManager.invokeMethod("stopEvenAI");
 
-    // Step 1: STT
-    final transcript = await STTService.transcribe(audioBytes);
-    if (transcript == null || transcript.isEmpty) {
-      lastTranscript.value = "No Speech Recognized";
-      isSyncing.value = false;
-      GestureHandler.showHUD("⚠️ No speech detected");
-      startSendReply("No Speech Recognized");
-
-      // ✅ Mark HUD ready again
-      isRunning.value = false;
-      print("✅ AI finished (no speech), HUD ready for notifications");
-      return;
-    }
-
-    combinedText = transcript;
-    lastTranscript.value = transcript;
+    // ✅ Skip STT — we’re already receiving processed data from glasses
+    combinedText = "[Audio received: ${audioBytes.length} bytes]";
+    lastTranscript.value = combinedText;
 
     // Step 2: ChatGPT
     final result = await ChatGPTService.askChatGPT(combinedText);
