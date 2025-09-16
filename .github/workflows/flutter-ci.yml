@@ -56,27 +56,51 @@ jobs:
 
       # Debug build
       - name: Build Android APK (Debug)
-        run: flutter build apk --debug
+        run: |
+          set -o pipefail
+          flutter build apk --debug 2>&1 | tee debug-build-log.txt
 
       # Release build
       - name: Build Android APK (Release)
-        run: flutter build apk --release
+        run: |
+          set -o pipefail
+          flutter build apk --release 2>&1 | tee release-build-log.txt
 
-      # ✅ Upload APKs as GitHub artifacts (downloadable via Actions tab)
+      # ✅ Always merge logs
+      - name: Merge logs
+        if: always()
+        run: |
+          touch debug-build-log.txt release-build-log.txt
+          cat debug-build-log.txt release-build-log.txt > build-log.txt
+
+      # ✅ Always upload logs as artifact (success or fail)
+      - name: Upload build logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-logs
+          path: build-log.txt
+
+      # ✅ Upload APKs only if they exist
       - name: Upload Debug APK Artifact
+        if: success() || always()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
+          if-no-files-found: ignore
 
       - name: Upload Release APK Artifact
+        if: success() || always()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
+          if-no-files-found: ignore
 
-      # ✅ Create/update single rolling "Latest Build" release
+      # ✅ Create/update single rolling "Latest Build" release (only if success)
       - name: Create or Update GitHub Release with APKs
+        if: success()
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest-build
