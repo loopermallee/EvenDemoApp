@@ -2,7 +2,7 @@
 import 'dart:async';
 import 'dart:typed_data';
 import 'package:flutter/services.dart';
-import 'evenai.dart';
+import 'services/evenai.dart';
 
 class BleManager {
   static const _channel = MethodChannel('method.bluetooth');
