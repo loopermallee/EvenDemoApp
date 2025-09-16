@@ -11,7 +11,7 @@ class App {
   // exit features by receiving [oxf5 0]
   void exitAll({bool isNeedBackHome = true}) async {
     if (EvenAI.isEvenAIOpen.value) {
-      await EvenAI.get.stopEvenAIByOS();
+      await EvenAI.to.stopEvenAIByOS();
     }
   }
 }
