@@ -8,13 +8,12 @@ on:
       - 'docs/**'
   pull_request:
     branches: [ main ]
-  workflow_dispatch:  # Manual trigger
+  workflow_dispatch:
 
 permissions:
   contents: write
   issues: write
   actions: read
-  checks: write
 
 jobs:
   build-android:
@@ -38,6 +37,12 @@ jobs:
           flutter-version: '3.24.3'
           cache: true
 
+      # ✅ Force Gradle plugin version consistency
+      - name: Ensure Gradle plugin version
+        run: |
+          echo "Checking Android Gradle Plugin version..."
+          sed -i 's/com.android.tools.build:gradle:8.2.2/com.android.tools.build:gradle:8.1.0/' android/build.gradle || true
+
       - name: Cache Flutter dependencies
         uses: actions/cache@v4
         with:
@@ -56,15 +61,21 @@ jobs:
 
       # Debug build
       - name: Build Android APK (Debug)
+        id: build_debug
+        continue-on-error: true
         run: |
           set -o pipefail
           flutter build apk --debug 2>&1 | tee debug-build-log.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
       # Release build
       - name: Build Android APK (Release)
+        id: build_release
+        continue-on-error: true
         run: |
           set -o pipefail
           flutter build apk --release 2>&1 | tee release-build-log.txt
+          echo "exit_code=${PIPESTATUS[0]}" >> $GITHUB_OUTPUT
 
       # ✅ Always merge logs
       - name: Merge logs
@@ -73,7 +84,7 @@ jobs:
           touch debug-build-log.txt release-build-log.txt
           cat debug-build-log.txt release-build-log.txt > build-log.txt
 
-      # ✅ Always upload logs as artifact (success or fail)
+      # ✅ Upload logs as artifact
       - name: Upload build logs
         if: always()
         uses: actions/upload-artifact@v4
@@ -83,7 +94,7 @@ jobs:
 
       # ✅ Upload APKs only if they exist
       - name: Upload Debug APK Artifact
-        if: success() || always()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: app-debug
@@ -91,14 +102,49 @@ jobs:
           if-no-files-found: ignore
 
       - name: Upload Release APK Artifact
-        if: success() || always()
+        if: always()
         uses: actions/upload-artifact@v4
         with:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
           if-no-files-found: ignore
 
-      # ✅ Create/update single rolling "Latest Build" release (only if success)
+      # ✅ Create GitHub Issue on failure
+      - name: Create formatted issue body
+        if: failure()
+        run: |
+          KEY_ERRORS=$(grep -i "error\\|exception\\|failed\\|fatal" build-log.txt | tail -40 || echo "⚠️ No explicit error logs found.")
+          FULL_LOG=$(tail -200 build-log.txt || echo "⚠️ No logs found.")
+
+          cat > issue-body.md << EOF
+          # 🚨 CI Build Failure Report
+          **Branch:** ${{ github.ref_name }}
+          **Commit:** [${{ github.sha }}](${{ github.server_url }}/${{ github.repository }}/commit/${{ github.sha }})
+          **Workflow Run:** [View Logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})
+
+          ## ❌ Key Errors
+          \`\`\`
+          ${KEY_ERRORS}
+          \`\`\`
+
+          ## 📋 Tail of Build Log
+          \`\`\`
+          ${FULL_LOG}
+          \`\`\`
+          EOF
+
+      - name: Create GitHub Issue with logs
+        if: failure()
+        uses: peter-evans/create-issue-from-file@v5
+        with:
+          title: "🚨 CI Build Failure - ${{ github.ref_name }}"
+          content-filepath: issue-body.md
+          labels: |
+            bug
+            ci-failure
+            auto-generated
+
+      # ✅ Publish GitHub Release with APKs (only on success)
       - name: Create or Update GitHub Release with APKs
         if: success()
         uses: softprops/action-gh-release@v1
