@@ -30,14 +30,16 @@ jobs:
       - run: flutter pub get --no-precompile
 
       - name: Build Debug APK
-        run: |
-          set -o pipefail
-          flutter build apk --debug 2>&1 | tee debug-build-log.txt
+        run: flutter build apk --debug 2>&1 | tee debug-build-log.txt
 
       - name: Build Release APK
+        run: flutter build apk --release 2>&1 | tee release-build-log.txt
+
+      # 🔍 Debugging step to confirm APK paths
+      - name: List generated APKs
         run: |
-          set -o pipefail
-          flutter build apk --release 2>&1 | tee release-build-log.txt
+          echo "📂 Checking APK output directory..."
+          ls -lh build/app/outputs/flutter-apk/ || echo "⚠️ APK directory missing"
 
       - name: Upload Debug APK
         uses: actions/upload-artifact@v4
@@ -45,7 +47,7 @@ jobs:
           name: app-debug
           path: build/app/outputs/flutter-apk/app-debug.apk
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Upload Release APK
         uses: actions/upload-artifact@v4
@@ -53,7 +55,7 @@ jobs:
           name: app-release
           path: build/app/outputs/flutter-apk/app-release.apk
           retention-days: 30
-          if-no-files-found: ignore
+          if-no-files-found: warn
 
       - name: Upload Logs
         uses: actions/upload-artifact@v4
