@@ -16,6 +16,12 @@ android {
         targetSdk 34  // ✅ Match compileSdk
         versionCode 1
         versionName "1.0"
+
+        externalNativeBuild {
+            cmake {
+                // Additional flags can be provided here if needed
+            }
+        }
     }
 
     buildFeatures {
@@ -29,6 +35,20 @@ android {
             shrinkResources false
             minifyEnabled false
             // If you add ProGuard / R8 later, update rules here
+        }
+    }
+
+    externalNativeBuild {
+        cmake {
+            path "src/main/cpp/CMakeLists.txt"
+        }
+    }
+
+    ndkVersion flutter.ndkVersion
+
+    packaging {
+        jniLibs {
+            keepDebugSymbols += ["**/liblc3.so"]
         }
     }
 
