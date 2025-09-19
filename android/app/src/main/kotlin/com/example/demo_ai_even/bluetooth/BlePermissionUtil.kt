@@ -10,32 +10,32 @@ import androidx.core.content.ContextCompat
 object BlePermissionUtil {
 
     /**
-     *  Bluetooth scan and connect permission
+     * Bluetooth scan and connect permissions required for the glasses.
      */
-    private val BLUETOOTH_PERMISSIONS = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-        arrayOf(
-            Manifest.permission.BLUETOOTH_SCAN,
-            Manifest.permission.BLUETOOTH_CONNECT,
-            Manifest.permission.ACCESS_FINE_LOCATION,
-        )
-    } else {
-        arrayOf(
-            Manifest.permission.ACCESS_FINE_LOCATION
-        )
-    }
+    private val BLUETOOTH_PERMISSIONS: Array<String> =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            arrayOf(
+                Manifest.permission.BLUETOOTH_SCAN,
+                Manifest.permission.BLUETOOTH_CONNECT,
+                Manifest.permission.ACCESS_FINE_LOCATION,
+            )
+        } else {
+            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        }
 
     /**
-     *  If permission not granted will call system permission dialog
+     * Checks whether Bluetooth permissions are granted, requesting them if needed.
      */
-    fun checkBluetoothPermission(context: Activity): Boolean {
+    fun checkBluetoothPermission(activity: Activity): Boolean {
         val missingPermissions = BLUETOOTH_PERMISSIONS.filter { permission ->
-            ContextCompat.checkSelfPermission(context, permission) != PackageManager.PERMISSION_GRANTED
+            ContextCompat.checkSelfPermission(activity, permission) != PackageManager.PERMISSION_GRANTED
         }
         if (missingPermissions.isNotEmpty()) {
-            ActivityCompat.requestPermissions(context, missingPermissions.toTypedArray(), 1)
+            ActivityCompat.requestPermissions(activity, missingPermissions.toTypedArray(), REQUEST_CODE)
             return false
         }
         return true
     }
 
+    private const val REQUEST_CODE = 1
 }
