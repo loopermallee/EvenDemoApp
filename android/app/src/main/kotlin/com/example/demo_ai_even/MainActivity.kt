@@ -19,6 +19,7 @@ class MainActivity: FlutterActivity(), EventChannel.StreamHandler {
 
     private val SERVICE_CHANNEL = "com.example.demo_ai_even/ble_service"
     private val HUD_CHANNEL = "com.example.demo_ai_even/hud_preview"
+    private val NOTIFICATION_CHANNEL = "com.example.demo_ai_even/notifications"
 
     private var hudOverlay: HudOverlay? = null
 
@@ -70,6 +71,22 @@ class MainActivity: FlutterActivity(), EventChannel.StreamHandler {
                     else -> result.notImplemented()
                 }
             }
+
+        val notificationChannel = MethodChannel(
+            flutterEngine.dartExecutor.binaryMessenger,
+            NOTIFICATION_CHANNEL
+        )
+
+        notificationChannel.setMethodCallHandler { call, result ->
+            when (call.method) {
+                "ping" -> {
+                    result.success("notifications_channel_ready")
+                }
+                else -> result.notImplemented()
+            }
+        }
+
+        NotificationService.channel = notificationChannel
     }
 
     private fun ensureHudOverlay(): HudOverlay {
