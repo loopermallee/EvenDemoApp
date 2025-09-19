@@ -1,6 +1,8 @@
 // lib/widgets/hud_overlay.dart
 import 'dart:async';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../services/gesture_handler.dart';
 import '../services/notification_service.dart';
@@ -23,6 +25,9 @@ class _HUDOverlayState extends State<HUDOverlay> {
   int _charIndex = 0;
   int _countdown = 0;
   bool _isManual = false; // ✅ track manual control
+
+  static const MethodChannel _hudPreviewChannel =
+      MethodChannel('com.example.demo_ai_even/hud_preview');
 
   @override
   void initState() {
@@ -66,6 +71,10 @@ class _HUDOverlayState extends State<HUDOverlay> {
     _pages = _paginate(text);
     _currentPage = 0;
     _isManual = false;
+    if (_pages.isEmpty) {
+      _hideHUD();
+      return;
+    }
     _startPage(_pages[_currentPage]);
     setState(() => _opacity = 1.0); // fade in
   }
@@ -88,10 +97,17 @@ class _HUDOverlayState extends State<HUDOverlay> {
         if (!_isManual) _startCountdown(_estimateTime(pageText));
       }
     });
+
+    _syncNativeHud(isActive: true, text: pageText);
   }
 
   void _startCountdown(int seconds) {
     _countdown = seconds;
+    _syncNativeHud(
+      isActive: true,
+      text: _pages[_currentPage],
+      countdown: _countdown,
+    );
     _countdownTimer?.cancel();
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (t) {
       if (_countdown <= 0) {
@@ -103,6 +119,11 @@ class _HUDOverlayState extends State<HUDOverlay> {
         }
       } else {
         setState(() => _countdown--);
+        _syncNativeHud(
+          isActive: true,
+          text: _pages[_currentPage],
+          countdown: _countdown,
+        );
       }
     });
   }
@@ -143,6 +164,7 @@ class _HUDOverlayState extends State<HUDOverlay> {
       _currentPage = 0;
       _isManual = false;
     });
+    _syncNativeHud(isActive: false);
   }
 
   @override
@@ -150,6 +172,43 @@ class _HUDOverlayState extends State<HUDOverlay> {
     _textTimer?.cancel();
     _countdownTimer?.cancel();
     super.dispose();
+  }
+
+  Future<void> _notifyNativeHud({
+    required bool isActive,
+    String? text,
+    int? countdown,
+  }) async {
+    final payload = <String, dynamic>{
+      'isActive': isActive,
+      'text': text,
+      'page': _pages.isEmpty ? null : '${_currentPage + 1}/${_pages.length}',
+      'countdown': countdown,
+      'isManual': _isManual,
+    }..removeWhere((key, value) => value == null);
+
+    try {
+      await _hudPreviewChannel.invokeMethod('render', payload);
+    } on MissingPluginException {
+      // Not running on Android; ignore.
+    } catch (e) {
+      debugPrint('HUD preview invoke failed: $e');
+    }
+  }
+
+  void _syncNativeHud({
+    required bool isActive,
+    String? text,
+    int? countdown,
+  }) {
+    final message = isActive ? text ?? (_pages.isNotEmpty ? _pages[_currentPage] : null) : null;
+    unawaited(
+      _notifyNativeHud(
+        isActive: isActive,
+        text: message,
+        countdown: countdown,
+      ),
+    );
   }
 
   @override

@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hud_overlay_countdown">Next in %1$ds</string>
+    <string name="hud_overlay_manual">Manual mode</string>
+</resources>
