@@ -23,21 +23,21 @@ class BLEForegroundService : Service() {
         super.onCreate()
         createNotificationChannel()
 
-        val notification: Notification = NotificationCompat.Builder(this, "BLE_CHANNEL")
-            .setContentTitle("Even Glasses Connected")
-            .setContentText("Keeping BLE connection active in background")
+        val notification: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+            .setContentTitle(getString(R.string.foreground_service_running))
+            .setContentText(getString(R.string.foreground_service_description))
             .setSmallIcon(R.mipmap.ic_launcher)
             .setOngoing(true)
             .build()
 
-        // ✅ Start as foreground service
-        startForeground(1, notification)
+        startForeground(NOTIFICATION_ID, notification)
 
-        // ✅ Try to reconnect on service start
         scope.launch {
             try {
-                Log.d("BLEForegroundService", "Attempting auto-reconnect...")
-                BleManager.instance.reconnectLastDevice()
+                Log.d("BLEForegroundService", "Attempting auto-reconnect…")
+                if (!BleManager.instance.reconnectLastDevice()) {
+                    BleManager.instance.ensureConnected()
+                }
             } catch (e: Exception) {
                 Log.e("BLEForegroundService", "Reconnect failed: $e")
             }
@@ -45,7 +45,6 @@ class BLEForegroundService : Service() {
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        // ✅ Keeps the service alive even if killed
         return START_STICKY
     }
 
@@ -54,12 +53,17 @@ class BLEForegroundService : Service() {
     private fun createNotificationChannel() {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val channel = NotificationChannel(
-                "BLE_CHANNEL",
+                CHANNEL_ID,
                 "BLE Background Service",
                 NotificationManager.IMPORTANCE_LOW
             )
             val manager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
             manager.createNotificationChannel(channel)
         }
+    }
+
+    companion object {
+        private const val CHANNEL_ID = "BLE_CHANNEL"
+        private const val NOTIFICATION_ID = 1
     }
 }

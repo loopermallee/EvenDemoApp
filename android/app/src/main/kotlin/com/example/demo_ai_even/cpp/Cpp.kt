@@ -6,14 +6,17 @@ object Cpp {
         System.loadLibrary("lc3")
     }
 
-    fun init() {}
+    fun init() = Unit
 
     @JvmStatic
     external fun decodeLC3(lc3Data: ByteArray?): ByteArray?
+
     @JvmStatic
-    external fun rnNoise(st:Long, input: FloatArray):FloatArray
+    external fun rnNoise(state: Long, input: FloatArray): FloatArray
+
     @JvmStatic
-    external fun createRNNoiseState():Long
+    external fun createRNNoiseState(): Long
+
     @JvmStatic
-    external fun destroyRNNoiseState(st:Long)
+    external fun destroyRNNoiseState(state: Long)
 }

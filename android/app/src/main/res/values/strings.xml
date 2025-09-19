@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="hud_overlay_countdown">Next in %1$ds</string>
-    <string name="hud_overlay_manual">Manual mode</string>
+    <string name="app_name">Even Demo</string>
+    <string name="permission_required">Bluetooth permissions are required to communicate with the glasses.</string>
+    <string name="foreground_service_running">Even Glasses Connected</string>
+    <string name="foreground_service_description">Keeping the BLE link alive in the background.</string>
 </resources>
