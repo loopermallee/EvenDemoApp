@@ -8,12 +8,12 @@ plugins {
 
 android {
     namespace "com.example.demo_ai_even"
-    compileSdk 34  // ✅ Flutter 3.24.3 supports up to 34
+    compileSdk 35
 
     defaultConfig {
         applicationId "com.example.demo_ai_even"
-        minSdk 23     // ✅ Flutter requires 23+
-        targetSdk 34  // ✅ Match compileSdk
+        minSdk 23
+        targetSdk 35
         versionCode 1
         versionName "1.0"
     }
@@ -24,15 +24,12 @@ android {
 
     buildTypes {
         release {
-            // ✅ Default Flutter signing config
             signingConfig signingConfigs.debug
             shrinkResources false
             minifyEnabled false
-            // If you add ProGuard / R8 later, update rules here
         }
     }
 
-    // ✅ Ensure Java 17 compatibility
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
@@ -48,5 +45,5 @@ flutter {
 }
 
 dependencies {
-    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.22"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:1.9.24"
 }
