@@ -21,8 +21,15 @@ jobs:
           distribution: temurin
           java-version: 17
 
-      - name: Install Gradle
-        uses: gradle/actions/setup-gradle@v3
+      - name: Install Flutter SDK
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.24.0'
+
+      - name: Generate local.properties
+        run: |
+          cd android
+          echo "flutter.sdk=$FLUTTER_HOME" > local.properties
 
       - name: Patch gradle.properties (remove legacy JVM flag)
         run: |
@@ -31,6 +38,7 @@ jobs:
 
       - name: Build Flutter Android debug APK
         run: |
+          flutter pub get
           cd android
           gradle assembleDebug --no-daemon --stacktrace
 
