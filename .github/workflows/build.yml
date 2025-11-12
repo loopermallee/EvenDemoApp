@@ -24,12 +24,14 @@ jobs:
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v3
 
-      - name: Build debug APK
-        run: gradle assembleDebug
+      - name: Build Flutter Android debug APK
+        run: |
+          cd android
+          gradle assembleDebug --no-daemon --stacktrace
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: EvenDemoApp-debug
           path: |
-            **/build/outputs/apk/debug/*.apk
+            android/app/build/outputs/apk/debug/*.apk
