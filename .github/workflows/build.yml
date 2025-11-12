@@ -24,6 +24,11 @@ jobs:
       - name: Install Gradle
         uses: gradle/actions/setup-gradle@v3
 
+      - name: Patch gradle.properties (remove legacy JVM flag)
+        run: |
+          cd android
+          sed -i '/MaxPermSize/d' gradle.properties || true
+
       - name: Build Flutter Android debug APK
         run: |
           cd android
