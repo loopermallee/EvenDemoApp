@@ -24,7 +24,7 @@ jobs:
       - name: Install Flutter SDK
         uses: subosito/flutter-action@v2
         with:
-          flutter-version: '3.24.0'
+          flutter-version: '3.24.3'
 
       - name: Generate local.properties
         run: |
@@ -39,12 +39,11 @@ jobs:
       - name: Build Flutter Android debug APK
         run: |
           flutter pub get
-          cd android
-          gradle assembleDebug --no-daemon --stacktrace
+          flutter build apk --debug
 
       - name: Upload debug APK artifact
         uses: actions/upload-artifact@v4
         with:
           name: EvenDemoApp-debug
           path: |
-            android/app/build/outputs/apk/debug/*.apk
+            build/app/outputs/flutter-apk/app-debug.apk
